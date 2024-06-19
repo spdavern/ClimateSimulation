@@ -1,0 +1,12 @@
+LICENSE
+README.md
+pyproject.toml
+src/climatesimulation.egg-info/PKG-INFO
+src/climatesimulation.egg-info/SOURCES.txt
+src/climatesimulation.egg-info/dependency_links.txt
+src/climatesimulation.egg-info/requires.txt
+src/climatesimulation.egg-info/top_level.txt
+src/climatesimulation/rpi/web/excel2.py
+src/climatesimulation/rpi/web/excel3.py
+src/climatesimulation/rpi/web/excel_.py
+src/climatesimulation/rpi/web/simple.py

@@ -11,6 +11,7 @@ authors = [{name = "Phil Parisi", email ="philsbeginnercode@gmail.com"}]
 dependencies = [
     'pandas',
     'flask',
+    'openpyxl'
 ]
 
 [tool.setuptools.packages.find]

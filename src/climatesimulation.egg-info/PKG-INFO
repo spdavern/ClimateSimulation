@@ -1,0 +1,49 @@
+Metadata-Version: 2.1
+Name: climatesimulation
+Version: 0.1
+Author-email: Phil Parisi <philsbeginnercode@gmail.com>
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pandas
+Requires-Dist: flask
+Requires-Dist: openpyxl
+
+# ClimateSimulation
+algae pond climate simulation
+
+
+## Setup (first time)
+
+open a terminal
+`sudo apt-get install tmux`
+
+pull repo
+`cd`
+`git pull https://github.com/philparisi/climatesimulation` 
+
+make a virtual environment
+`python3 -m venv pond_venv`
+`cd ClimateSimulation`
+`source pond_venv/bin/activate`
+
+install dependencies
+`python install -e .`
+
+## RPi - Running Web App
+
+source venv
+`source pond_venv/bin/activate`
+
+run program
+`cd ClimateSimulation`
+`flask --app <name_of_app> run`
+
+
+### trigger
+
+
+## Arduino - Sending Voltages
+
+arduino sends 0-5V by default on PWM pins
+voltage multiplier doubles the arduino voltage (sends 0-10V) to Vivosun lights
