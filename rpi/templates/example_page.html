@@ -1,0 +1,30 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>How To Guide</title>
+</head>
+<body>
+
+    <h3>1. Excel Format</h3>
+    <p>- No headers!</p>
+    <p>- Column 1: time (HH:MM:SS formatted as time in excel to the nearest second, can be at whatever time interval or not at intervals)</p>
+    <p>- Column 2: light intensity (integer from 0 to 100, no percents!)</p>
+    <p>note: The minimum light intensity to turn Vivosun on is ~18. To be safe, assume any value < 20 turns the Vivosun 'off'.</p>
+    
+
+    <h3>2. Example Excel Light Profile</h3>
+    <p>The below light profile would run for twelve hours and has 1 minute time intervals. The 'times' are all relative, and the first time-value pair listed will be sent to the lights immediately!</p>
+    <p> 00:00:00  |   25 </p>
+    <p> 00:01:00  |   42.5 </p>
+    <p> 00:02:00  |   99 </p>
+    <p> ... </p>
+    <p> 10:27:00  |   31 </p>
+    <p> 10:28:00  |   0 </p>
+    <p> ... </p>
+    <p> 11:59:00  |   67 </p>
+    <p> 12:00:00  |   55.1 </p>    
+
+    <button onclick="window.location.href='{{ url_for('upload') }}'">Back to Main Page</button>
+</body>
+</html>

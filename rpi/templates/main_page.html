@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Upload/View Excel</title>
+</head>
+<body>
+    <h1>Algae Pond Climate Simulator</h1>
+    
+    <h3>Instructions</h3>
+    <p>1. Select 'Choose File' and select an Excel light profile (.xlsx).</p>
+    <p>2. (optional) Click the 'View file' button to view its contents. Then come back to this page. </p>
+    <p>3. Select 'Send to Pond' when ready!</p>
+    <!-- button to example_page -->
+    <button onclick="window.location.href='{{ url_for('example_page') }}'">See example</button>
+    
+    <!-- creates 'Choose File' button and 'View Profile' button (will call upload_file() function) -->    
+    <form action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
+        <label for="file">Choose Excel file:</label>
+        <input type="file" id="file" name="file" accept=".xlsx">
+        <button type="submit">View Profile</button>
+    </form>
+
+    {% if file_uploaded %}
+        <h2>Uploaded File Plot:</h2>
+        <img src="{{ url_for('display_plot') }}" alt="Light Profile">
+    {% endif %}
+
+</body>
+</html>
