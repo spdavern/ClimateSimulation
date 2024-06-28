@@ -12,7 +12,7 @@ dependencies = [
     'pandas',
     'flask',
     'openpyxl',
-    'matplotlib'ß
+    'matplotlib'
 ]
 
 [tool.setuptools.packages.find]
