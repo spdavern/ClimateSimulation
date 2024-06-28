@@ -1,0 +1,11 @@
+# keep out of the repository the following files
+
+# all MacOS files
+*.DS_Store
+
+# ignore all images
+*.png
+
+# all data files
+*.xlsx
+*.csv

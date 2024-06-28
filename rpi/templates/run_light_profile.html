@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Upload View Excel</title>
+</head>
+<body>
+
+    <!-- button navigation -->
+    <div>
+        <button style="display: inline-block; margin-right: 10px;" onclick="window.location.href='{{ url_for('main_page') }}'">Back to Main Page</button>
+        <button style="display: inline-block;" onclick="window.location.href='{{ url_for('live_light_profile') }}'">View 'Live' Profile</button>
+        <button style="display: inline-block;" onclick="window.location.href='{{ url_for('view_light_profile') }}'">Light Profile Viewer</button>        
+        <button style="display: inline-block;" onclick="window.location.href='{{ url_for('run_light_profile') }}'">Upload and Run</button>
+    </div>
+
+    <h2>Upload and Run</h2>
+
+    <p>Sending a new profile overwrites any existing profiles. Once uploaded, the pond lights will flash thrice, then start at the beginning of the uploaded profile. </p>
+    
+    <form action="{{ url_for('send_light_profile') }}" method="post" enctype="multipart/form-data">
+        <label for="file">Choose Excel file:</label>
+        <input type="file" id="file" name="file" accept=".xlsx, .csv">
+        <button type="submit">Send to Lights!</button>
+    </form>
+
+
+    <!-- Display Success Message (conditional) -->
+    {% if sent_to_lights %}
+        <br></br>
+        <h2>Success! Sent {{sent_to_lights}} to the Pond Lights :] -not for real yet-</h2>
+        <p>Wait ~15secs, then check the 'View Live Profile' to see your profile in action.</p>
+    {% endif %}
+
+
+<body>

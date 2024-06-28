@@ -6,14 +6,29 @@
 </head>
 <body>
 
-    <h3>1. Excel Format</h3>
-    <p>- No headers!</p>
+    <!-- button navigation -->
+    <div>
+        <button style="display: inline-block; margin-right: 10px;" onclick="window.location.href='{{ url_for('main_page') }}'">Back to Main Page</button>
+        <button style="display: inline-block;" onclick="window.location.href='{{ url_for('live_light_profile') }}'">View 'Live' Profile</button>
+        <button style="display: inline-block;" onclick="window.location.href='{{ url_for('view_light_profile') }}'">Light Profile Viewer</button>        
+        <button style="display: inline-block;" onclick="window.location.href='{{ url_for('run_light_profile') }}'">Upload and Run</button>
+    </div>
+
+    <h3>Actions You Can Take</h3>
+    <p>1. Check on the 'live' light profile currently running on the pond.</p>
+    <p>2. Use the Light Profile Viewer to ensure it looks good before uploading.</p>
+    <p>3. Upload and Run a new light profile and send it to the pond lights.</p>
+
+    <br><br/>
+
+    <h3>Excel/CSV Format</h3>
+    <p>- Inlcude header: 'time' and 'intensity'</p>
     <p>- Column 1: time (HH:MM:SS formatted as time in excel to the nearest second, can be at whatever time interval or not at intervals)</p>
-    <p>- Column 2: light intensity (integer from 0 to 100, no percents!)</p>
+    <p>- Column 2: intensity (integer from 0 to 100, no percents!)</p>
     <p>note: The minimum light intensity to turn Vivosun on is ~18. To be safe, assume any value < 20 turns the Vivosun 'off'.</p>
     
 
-    <h3>2. Example Excel Light Profile</h3>
+    <h3>Example Excel/CSV Light Profile</h3>
     <p>The below light profile would run for twelve hours and has 1 minute time intervals. The 'times' are all relative, and the first time-value pair listed will be sent to the lights immediately!</p>
     <p> 00:00:00  |   25 </p>
     <p> 00:01:00  |   42.5 </p>
@@ -25,6 +40,5 @@
     <p> 11:59:00  |   67 </p>
     <p> 12:00:00  |   55.1 </p>    
 
-    <button onclick="window.location.href='{{ url_for('upload') }}'">Back to Main Page</button>
 </body>
 </html>
