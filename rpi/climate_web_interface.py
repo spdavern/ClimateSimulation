@@ -54,35 +54,42 @@ def view_profile():
     if file.filename == '':
         return redirect(request.url)
     
+    # save the file in 'static/'
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+    file.save(filepath)
 
     # check file format validity 
-    if check_profile_validity(file.filename) == False:
+    if check_profile_validity(filepath) == False:
+        os.unlink(filepath) # delete the file if it's invalid
         return 'Invalid file format. Please upload .xlsx or .csv file with 2 columns: Time and Light Intensity Value.'
 
 
-    if file and (file.filename.endswith('.xlsx') or file.filename.endswith('.xlsx')):
+    # create a profile plot and save it
+    plot_excel(filepath)
 
-        # save the file
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-        file.save(filepath)
+    # remove excel files to reduce clutter
+    for filename in os.listdir(app.config['UPLOAD_FOLDER']):
+        if filename.endswith('.xlsx'):
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            os.unlink(file_path)
 
-        # create a profile plot and save it
-        plot_excel(filepath)
 
-        # remove excel files to reduce clutter
-        for filename in os.listdir(app.config['UPLOAD_FOLDER']):
-            if filename.endswith('.xlsx'):
-                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                os.unlink(file_path)
-
-        return render_template('view_light_profile.html', file_uploaded=True)
-    return 'Invalid file format. Please upload an Excel file (.xlsx) or CSV file (.csv).'
+    # all is well, return .html with the plot
+    return render_template('view_light_profile.html', file_uploaded=True)
 
 
 # this is triggered when user clicks "Send to Lights" button on the 'run' page
 @app.post('/run')
 def send_light_profile():
 
+    # check if file is real from the HTML request
+    if 'file' not in request.files:
+        return redirect(request.url)
+
+    file = request.files['file']
+    if file.filename == '':
+        return redirect(request.url)
+    
     # delete everything in the 'live' folder (commented out until actual operation)
     #for filename in os.listdir(app.config['LIVE_FOLDER']):
     #    file_path = os.path.join(app.config['LIVE_FOLDER'], filename)
@@ -92,30 +99,19 @@ def send_light_profile():
     #    except Exception as e:
     #        print(e)
 
-    # check if file is real from the HTML request
-    if 'file' not in request.files:
-        return redirect(request.url)
-    
-    file = request.files['file']
-    if file.filename == '':
-        return redirect(request.url)
-    
+    # save the file in 'static/live'
+    filepath = os.path.join(app.config['LIVE_FOLDER'], file.filename)
+    file.save(filepath)
+
     # check file format validity 
-    if check_profile_validity(file.filename) == False:
+    if check_profile_validity(filepath) == False:
+        os.unlink(filepath) # delete the file if it's invalid
         return 'Invalid file format. Please upload .xlsx or .csv file with 2 columns: Time and Light Intensity Value.'
 
-    # check if file is correct file format
-    if file and (file.filename.endswith('.xlsx') or file.filename.endswith('.csv')):
 
-        check_profile_validity(file.filename)
-
-        # store in the 'live' folder where other python script is waiting for it
-        filepath = os.path.join(app.config['LIVE_FOLDER'], file.filename)
-        file.save(filepath)
-
-        return render_template('run_light_profile.html', sent_to_lights=os.path.basename(filepath))
+    # if no issues, then return the 'run' page with the file name
+    return render_template('run_light_profile.html', sent_to_lights=os.path.basename(filepath))
     
-    return 'Invalid file format. Please upload an Excel file (.xlsx) or CSV file (.csv).'
 
 
 def plot_excel(filepath):
