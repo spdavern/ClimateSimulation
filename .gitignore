@@ -4,8 +4,8 @@
 *.DS_Store
 
 # ignore all images
-*.png
+#*.png
 
 # all data files
-*.xlsx
-*.csv
+#*.xlsx
+#*.csv
