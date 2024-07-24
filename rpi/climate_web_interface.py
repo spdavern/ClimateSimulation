@@ -6,8 +6,8 @@ import os
 matplotlib.use('Agg')
 
 app = Flask(__name__)
-UPLOAD_FOLDER = 'static'
-LIVE_FOLDER = 'static/live'
+UPLOAD_FOLDER = 'rpi/static'
+LIVE_FOLDER = 'rpi/static/live'
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['LIVE_FOLDER'] = LIVE_FOLDER
