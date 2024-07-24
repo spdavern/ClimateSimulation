@@ -1,8 +1,10 @@
-from flask import Flask, request, render_template, url_for, redirect
-import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
 import os
+import pandas as pd
+from flask import Flask, request, render_template, url_for, redirect
+from werkzeug.utils import secure_filename
+
 matplotlib.use('Agg')
 
 app = Flask(__name__)
@@ -55,7 +57,8 @@ def view_profile():
         return redirect(request.url)
     
     # save the file in 'static/'
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+    safe_fn = secure_filename(file.filename)
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], safe_fn)
     file.save(filepath)
 
     # check file format validity 
@@ -100,7 +103,8 @@ def send_light_profile():
     #        print(e)
 
     # save the file in 'static/live'
-    filepath = os.path.join(app.config['LIVE_FOLDER'], file.filename)
+    safe_fn = secure_filename(file.filename)
+    filepath = os.path.join(app.config['LIVE_FOLDER'], safe_fn)
     file.save(filepath)
 
     # check file format validity 
