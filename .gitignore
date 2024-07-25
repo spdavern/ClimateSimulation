@@ -2,6 +2,7 @@
 
 # build files
 *.egg-info/
+__pycache__/
 
 # all MacOS files
 *.DS_Store
@@ -12,3 +13,6 @@
 # all data files
 #*.xlsx
 #*.csv
+
+# Scratch files
+scratch.*
