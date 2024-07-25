@@ -1,11 +1,8 @@
-import matplotlib
-import matplotlib.pyplot as plt
 import os
-import pandas as pd
 from flask import Flask, request, render_template, url_for, redirect
+from glob import glob
 from werkzeug.utils import secure_filename
-
-matplotlib.use('Agg')
+from climate_web_utilities import plot_excel, check_profile_validity
 
 app = Flask(__name__)
 UPLOAD_FOLDER = 'rpi/static'
@@ -93,8 +90,12 @@ def send_light_profile():
     if file.filename == '':
         return redirect(request.url)
     
-    # delete everything in the 'live' folder (commented out until actual operation)
-    #for filename in os.listdir(app.config['LIVE_FOLDER']):
+    # delete everything in the 'live' folder
+    for pathname in glob(os.path.join(app.config['LIVE_FOLDER'], '*')):
+        os.unlink(pathname)
+
+    # TODO: Ask Phil question about this. Delete or keep?
+    # for filename in os.listdir(app.config['LIVE_FOLDER']):
     #    file_path = os.path.join(app.config['LIVE_FOLDER'], filename)
     #    try:
     #        if os.path.isfile(file_path):
@@ -112,42 +113,8 @@ def send_light_profile():
         os.unlink(filepath) # delete the file if it's invalid
         return 'Invalid file format. Please upload .xlsx or .csv file with 2 columns: Time and Light Intensity Value.'
 
-
     # if no issues, then return the 'run' page with the file name
     return render_template('run_light_profile.html', sent_to_lights=os.path.basename(filepath))
-    
-
-
-def plot_excel(filepath):
-    
-    # pull in excel file and plot it
-    df = pd.read_excel(filepath)
-    plt.figure(figsize=(10, 6))
-
-    # convert first col to pd time
-    df.iloc[:, 0] = pd.to_datetime(df.iloc[:, 0], format='%H:%M:%S').dt.time
-    
-    # Prepare x and y data for plotting
-    times = [t.strftime('%H:%M:%S') for t in df.iloc[:, 0]]
-    values = df.iloc[:, 1]
-
-    # plot cols
-    plt.plot(times, values, marker='o')
-
-    plt.xlabel('Time')
-    plt.ylabel('Light Intensity Value')
-    plt.title(str(os.path.basename(filepath)))
-
-    # xaxis labels - reduce clutter
-    if len(times) > 50:
-        plt.xticks(times[::10], rotation=45)
-    else:
-        plt.xticks(times, rotation=45)
-
-    # save plot to 'static' folder
-    plot_path = os.path.join(app.config['UPLOAD_FOLDER'], 'plot.png')
-    plt.savefig(plot_path)
-    plt.close()
 
 
 # this is called by HTML after user clicks 'View Profile' button
@@ -166,35 +133,6 @@ def bad_request(error):
 @app.get('/live/live_plot.png') # this path doesn't do anything???
 def display_live_plot(): 
     return redirect(url_for('static', filename='live/live_plot.png')) # must use subfolder within 'static'
-
-
-def check_profile_validity(filepath):
-    
-    # 1. check if excel file or csv file
-    if filepath.endswith('.xlsx'):
-        df = pd.read_excel(filepath)
-
-    elif filepath.endswith('.csv'):
-        df = pd.read_csv(filepath)
-
-    else:
-        return False
-
-    # 2. check if file has 2 columns
-    if len(df.columns) != 2:
-        return False
-    
-    # 3. check if first column is time
-    try:     
-        # convert first col to pd time
-        df.iloc[:, 0] = pd.to_datetime(df.iloc[:, 0], format='%H:%M:%S').dt.time
-    except:
-        return False
-    
-    # if passed all the tests, return True!
-    return True
-
-
 
 
 # Main Driver Function
