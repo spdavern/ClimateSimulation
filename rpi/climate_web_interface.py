@@ -5,8 +5,8 @@ from werkzeug.utils import secure_filename
 from climate_web_utilities import plot_excel, check_profile_validity
 
 app = Flask(__name__)
-UPLOAD_FOLDER = 'rpi/static'
-LIVE_FOLDER = 'rpi/static/live'
+UPLOAD_FOLDER = 'static'
+LIVE_FOLDER = 'static/live'
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['LIVE_FOLDER'] = LIVE_FOLDER
@@ -93,15 +93,6 @@ def send_light_profile():
     # delete everything in the 'live' folder
     for pathname in glob(os.path.join(app.config['LIVE_FOLDER'], '*')):
         os.unlink(pathname)
-
-    # TODO: Ask Phil question about this. Delete or keep?
-    # for filename in os.listdir(app.config['LIVE_FOLDER']):
-    #    file_path = os.path.join(app.config['LIVE_FOLDER'], filename)
-    #    try:
-    #        if os.path.isfile(file_path):
-    #            os.unlink(file_path)
-    #    except Exception as e:
-    #        print(e)
 
     # save the file in 'static/live'
     safe_fn = secure_filename(file.filename)
