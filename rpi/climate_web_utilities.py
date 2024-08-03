@@ -1,11 +1,12 @@
 import json
 import logging
 import matplotlib
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import os
 import pandas as pd
 from abc import ABC
-from datetime import datetime, time
+from datetime import datetime, date, time
 from glob import glob
 from typing import Optional
 
@@ -222,31 +223,63 @@ def expand_profile_points(df: pd.DataFrame) -> pd.DataFrame:
     return df2
 
 
-def plot_excel(filepath):
+def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
     # pull in excel file and plot it
     df = pd.read_excel(filepath)
     df = expand_profile_points(df)
+
+    # Build plot
     plt.figure(figsize=(10, 6))
 
     # Prepare x and y data for plotting
-    times = [dt.hour + dt.minute / 60 + dt.second / 60 / 60 for dt in df[df.columns[0]]]
+    today = datetime.today().date()
+    if config:
+        start = config.started
+        time_deltas = [
+            datetime.combine(date.min, x) - datetime.min for x in df.iloc[:, 0].tolist()
+        ]
+        times = [start + x for x in time_deltas]
+    else:
+        start = today
+        times = [datetime.combine(start, x) for x in df.iloc[:, 0].tolist()]
     values = df.iloc[:, 1]
 
     # plot cols
     plt.plot(times, values, marker=".")
     plt.grid("both")
-    plt.xlabel("Duration from Start of Profile (hours)")
+    plt.xlabel("Duration from Start of Profile (Hrs:Min)")
     plt.ylabel("Light Intensity Value")
     plt.title(str(os.path.basename(filepath)))
+    plt.tight_layout()
 
-    # xaxis labels - reduce clutter
-    if len(times) > 50:
-        plt.xticks(times[::10], rotation=45)
-    else:
-        plt.xticks(times, rotation=45)
+    if config:
+        now = datetime.now()
+        dur = now - config.started
+        dur_str = f"{int(dur.seconds/60/60 % 60):02d}:{int(dur.seconds/60 % 60):02d}"
+        plt.axvline(x=now, linestyle="--", color="r")
+        plt.annotate(dur_str, [now, 86], rotation=90, ha="right")
+        plt.annotate("Last Update", [now, 80.5], rotation=90, ha="left")
+        plt.axvline(x=start, linestyle="--", color="r")
+        plt.annotate(
+            config.started.strftime("%m/%d %H:%M"),
+            [start, 41],
+            rotation=90,
+            ha="right",
+        )
+        plt.annotate("Start Time", [start, 42], rotation=90, ha="left")
+        plt.xlabel("Rasberry Pi Time of Day")
+        plt.title(f"Controlling Profile: {config.profile_filename}")
+
+    plt.gcf().autofmt_xdate(rotation=90, ha="center")
+    ax = plt.gca()
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
 
     # save plot to 'static' folder
-    plot_path = os.path.join(os.path.dirname(filepath), "plot.png")
+    plot_path = (
+        os.path.join(LIVE_FOLDER_PATH, "live_plot.png")
+        if config
+        else os.path.join(os.path.dirname(filepath), "plot.png")
+    )
     plt.savefig(plot_path)
     plt.close()
 
