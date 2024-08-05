@@ -95,6 +95,7 @@ class ClimateConfig(ABC):
         """Updates the live plot and 'remembered' state."""
         # Should perhaps update live_plot.png here. If so, probably should be deleted in __del__.
         self.last_updated = datetime.now()
+        plot_excel(self._profile_filepath, self)
         self.save()
 
     def save(self) -> None:
@@ -152,11 +153,15 @@ class ClimateConfig(ABC):
             logger.warning("Data for %s keys missing in the config found: ", missing)
 
     def __del__(self) -> None:
-        """Function called when a ClimateConfig is deleted."""
+        """Function called when a ClimateConfig instance is deleted."""
         # Note: This could add the start and finish times to the name and move to a history folder.
         # Instead it now just cleans up after itself.
         if os.path.exists(os.path.join(LIVE_FOLDER_PATH, CONFIG_NAME)):
             os.remove(os.path.join(LIVE_FOLDER_PATH, CONFIG_NAME))
+        if os.path.exists(self._profile_filepath):
+            os.remove(self._profile_filepath)
+        if os.path.exists(os.path.join(LIVE_FOLDER_PATH, "live_plot.png")):
+            os.remove(os.path.join(LIVE_FOLDER_PATH, "live_plot.png"))
 
 
 def expand_profile_points(df: pd.DataFrame) -> pd.DataFrame:

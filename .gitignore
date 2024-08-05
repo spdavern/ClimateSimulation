@@ -16,3 +16,7 @@ __pycache__/
 
 # Scratch files
 scratch.*
+
+# Contents of live folder:
+rpi/static/live/
+rpi/static/plot.png
