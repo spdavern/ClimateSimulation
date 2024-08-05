@@ -1,7 +1,7 @@
 import os
 import shutil
 import time
-from flask import Flask, request, render_template, url_for, redirect
+from flask import Flask, request, render_template, url_for, redirect, send_file
 from glob import glob
 from typing import Optional
 from werkzeug.utils import secure_filename
@@ -163,6 +163,14 @@ def display_live_plot():
     return redirect(
         url_for("static", filename="live/live_plot.png")
     )  # must use subfolder within 'static'
+
+
+@app.route("/download")
+def download():
+    path = (
+        "/home/pond/ClimateSimulation/rpi/default_profiles/light_profile_template.xlsx"
+    )
+    return send_file(path, as_attachment=True)
 
 
 # Main Driver Function
