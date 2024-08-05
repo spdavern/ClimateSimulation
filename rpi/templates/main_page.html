@@ -41,6 +41,17 @@
 
     <br><br/>
 
+    <!-- Run a New Light Profile -->    
+    <h3>4. Download a Light Profile</h3>
+    <body>
+        <p> Download a light profile file that you can modify</p>
+        <p> You may need to set your browser to allow it being downloaded:</p>
+        <p> Settings > Privacy and security > Site settings > 130.20.213.253 > Insecure content > Allow</p>
+        <button onclick="window.location.href='{{ url_for('download') }}'">Download</button>                
+    </body>
+
+    <br><br/>
+
     <!-- Display Uploaded Profile (conditional) -->
     {% if file_uploaded %}
         <h4>Uploaded Light Profile</h4>
