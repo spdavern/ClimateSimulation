@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import os
 import pandas as pd
 from abc import ABC
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 from glob import glob
 from typing import Optional
 
@@ -234,12 +234,19 @@ def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
     # Prepare x and y data for plotting
     today = datetime.today().date()
     if config:
-        start = config.started
+        # For live profile plots calculate plot times in the context of the last 24 hours
+        start = (
+            datetime.combine(datetime.today().date(), config.started.time())
+            - timedelta(days=1)
+            if config.started < datetime.today() - timedelta(days=1)
+            else config.started
+        )
         time_deltas = [
             datetime.combine(date.min, x) - datetime.min for x in df.iloc[:, 0].tolist()
         ]
         times = [start + x for x in time_deltas]
     else:
+        # For profile viewers plot in the context of from this moment forward.
         start = today
         times = [datetime.combine(start, x) for x in df.iloc[:, 0].tolist()]
     values = df.iloc[:, 1]
@@ -253,8 +260,9 @@ def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
     plt.tight_layout()
 
     if config:
+        # For life profile label plots with start and current time/duration.
         now = datetime.now()
-        dur = now - config.started
+        dur = now - start
         dur_str = f"{int(dur.seconds/60/60 % 60):02d}:{int(dur.seconds/60 % 60):02d}"
         plt.axvline(x=now, linestyle="--", color="r")
         plt.annotate(dur_str, [now, 86], rotation=90, ha="right")
