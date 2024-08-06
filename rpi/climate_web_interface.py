@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import time
@@ -12,12 +13,16 @@ from climate_web_utilities import (
 )
 
 app = Flask(__name__)
-UPLOAD_FOLDER: str = "static"
-LIVE_FOLDER: str = "static/live"
-ACTIVE_CONFIG: Optional[ClimateConfig] = None
-
+UPLOAD_FOLDER: str = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+LIVE_FOLDER: str = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "static/live"
+)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["LIVE_FOLDER"] = LIVE_FOLDER
+ACTIVE_CONFIG: Optional[ClimateConfig] = None
+
+logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO").upper())
+logger = logging.getLogger(__name__)
 
 
 # Main Page
@@ -75,6 +80,7 @@ def view_profile():
     # save the file in 'static/'
     safe_fn = secure_filename(file.filename)
     filepath = os.path.join(app.config["UPLOAD_FOLDER"], safe_fn)
+    logger.info("filepath: %s", filepath)
     file.save(filepath)
 
     # check file format validity
@@ -98,7 +104,7 @@ def view_profile():
 # this is triggered when user clicks "Send to Lights" button on the 'run' page
 @app.post("/run")
 def send_light_profile():
-    global ACTIVE_CONFIG
+    global ACTIVE_CONFIG, logger
 
     # check if file is real from the HTML request
     if "file" not in request.files:
@@ -109,18 +115,15 @@ def send_light_profile():
         return redirect(request.url)
     # save the file in 'static/live'
     safe_fn = secure_filename(file.filename)
-    filepath = os.path.join(app.config["LIVE_FOLDER"], safe_fn)
-    if os.path.exists(filepath):
-        if os.path.exists(os.path.join(LIVE_FOLDER, "replaced.xlsx")):
-            os.remove(os.path.join(LIVE_FOLDER, "replaced.xlsx"))
-        shutil.move(filepath, os.path.join(LIVE_FOLDER, "replaced.xlsx"))
+    filepath = os.path.join(app.config["UPLOAD_FOLDER"], safe_fn)
     file.save(filepath)
     # check file format validity
     if check_profile_validity(filepath) == False:
         os.remove(filepath)  # delete the file if it's invalid
-        if os.path.exists(os.path.join(LIVE_FOLDER, "replaced.xlsx")):
-            shutil.move(os.path.join(LIVE_FOLDER, "replaced.xlsx"), filepath)
         return "Invalid file format. Please upload .xlsx or .csv file with 2 columns: Time and Light Intensity Value."
+    livepath = os.path.join(app.config["LIVE_FOLDER"], safe_fn)
+    shutil.move(filepath, livepath)
+    logger.info("New validated profile uploaded: %s", livepath)
 
     # If there is an active config eliminate it.
     if ACTIVE_CONFIG:
@@ -128,14 +131,12 @@ def send_light_profile():
         # Give the garbage collector a moment to do its thing.
         time.sleep(2)
     # delete any other plots or configs in the 'live' folder
-    if os.path.exists(os.path.join(LIVE_FOLDER, "replaced.xlsx")):
-        os.remove(os.path.join(LIVE_FOLDER, "replaced.xlsx"))
     for pathname in glob(os.path.join(app.config["LIVE_FOLDER"], "*.png")):
         os.remove(pathname)
     for pathname in glob(os.path.join(app.config["LIVE_FOLDER"], "*.json")):
         os.remove(pathname)
 
-    ACTIVE_CONFIG = ClimateConfig(filepath)
+    ACTIVE_CONFIG = ClimateConfig(livepath)
     ACTIVE_CONFIG.update()
 
     # if no issues, then return the 'run' page with the file name
