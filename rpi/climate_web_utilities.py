@@ -8,6 +8,7 @@ import pandas as pd
 from abc import ABC
 from datetime import datetime, date, time, timedelta
 from glob import glob
+from multiprocessing import Process
 from typing import Optional
 
 CONFIG_NAME: str = "climate_config.json"
@@ -77,7 +78,6 @@ class ClimateConfig(ABC):
         # the __del__ may occur AFTER the save() that happens in the update() below leaving no .json.
         # A new json will be created the next save() but if this becomes a problem it will have to be dealt
         # with. This should normally never be a problem with one, prolonged instance of the class.
-        self.update()
 
     @property
     def started(self) -> datetime:
