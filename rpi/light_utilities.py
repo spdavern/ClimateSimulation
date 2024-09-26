@@ -1,21 +1,33 @@
 # functions for the lights undergoing climate simulation
+# check device port depending on your system (/dev/ttyACM0 and /dev/ttyACM1 are common)
+# viewable in Arduino IDE or `ls /dev/tty*`, set baudrate in IDE
+
+import os
 import time
 import serial
 
+# TODO: COMM_PORT should probably come by detection in the os or by a system variable that
+# can be set up by the reboot_climate_web_app.sh.
 COMM_PORT = "/dev/ttyACM0"
 BAUD_RATE = 9600
+
+# class Arduino():
+#     """A dummy Arduino object to facilitate testing."""
+#     def __init__(self) -> None:
+#         self.is_open = True
+
+#     def write(self, message):
+#         print(f"Sent to Arduino: {message}")
+
 try:
     ARDUINO = serial.Serial(port=COMM_PORT, baudrate=BAUD_RATE)
+    # ARDUINO = Arduino()
     IS_ARDUINO_SETUP = True
 
 except Exception as e:
     print(f"Error was: {e}")
     ARDUINO = None
     IS_ARDUINO_SETUP = False
-
-finally:
-    if "ARDUINO" in locals() and ARDUINO and ARDUINO.is_open:
-        ARDUINO.close()
 
 
 def flash_lights_thrice(arduino=ARDUINO):
@@ -29,12 +41,12 @@ def flash_lights_thrice(arduino=ARDUINO):
         Physically flashes the lights 3 times.
     """
 
-    for i in range(3):
-
-        send_to_arduino(arduino, 100)
-        time.sleep(1.5)
-        send_to_arduino(arduino, 0)
-        time.sleep(1.5)
+    for i in range(4):
+        print("Flash light...", arduino)
+        send_to_arduino(100, arduino)
+        time.sleep(0.5)
+        send_to_arduino(0, arduino)
+        time.sleep(0.5)
 
     return
 
@@ -51,6 +63,11 @@ def send_to_arduino(val, arduino=ARDUINO):
         Sends the value to the Arduino.
     """
     if IS_ARDUINO_SETUP:
-        arduino.write(str(int(val)) + "\n").encode("utf-8")
+        arduino.write(bytes(f"{val}\n", "utf-8"))
+        # arduino.write(val)
 
     return
+
+
+if ARDUINO and ARDUINO.is_open:
+    flash_lights_thrice()

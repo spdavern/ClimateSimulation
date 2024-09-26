@@ -11,6 +11,8 @@ from climate_web_utilities import (
     check_profile_validity,
     ClimateConfig,
 )
+from light_utilities import flash_lights_thrice, ARDUINO
+from control_lights import control_lights
 
 app = Flask(__name__)
 UPLOAD_FOLDER: str = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -137,6 +139,8 @@ def send_light_profile():
         os.remove(pathname)
 
     ACTIVE_CONFIG = ClimateConfig(livepath)
+    flash_lights_thrice()
+    # Here's where we'll use multiprocess to start a light control process with the path to the profile being started.
     ACTIVE_CONFIG.update()
 
     # if no issues, then return the 'run' page with the file name
