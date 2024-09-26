@@ -5,6 +5,9 @@
 // inputs over serial are 0 to 100
 // convert to between 0 and 255 (PWM limits)
 
+// note on what needs to be sent over serial to the Arduino
+  // from python: arduino.write(bytes(f"{val}\n",'utf-8'))
+    // tested sending val = "27" and val = 81.9 from python, and it worked
 
 const int outputPin = 6; // Define the PWM output pin
 int pwmVal = 0;
