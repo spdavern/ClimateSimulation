@@ -2,7 +2,7 @@
 import time
 import serial
 
-COMM_PORT = "/dev/ttyUSB0"
+COMM_PORT = "/dev/ttyACM0"
 BAUD_RATE = 9600
 try:
     ARDUINO = serial.Serial(port=COMM_PORT, baudrate=BAUD_RATE)
