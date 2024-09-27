@@ -124,8 +124,6 @@ def send_light_profile():
         os.remove(filepath)  # delete the file if it's invalid
         return "Invalid file format. Please upload .xlsx or .csv file with 2 columns: Time and Light Intensity Value."
     livepath = os.path.join(app.config["LIVE_FOLDER"], safe_fn)
-    shutil.move(filepath, livepath)
-    logger.info("New validated profile uploaded: %s", livepath)
 
     # If there is an active config eliminate it.
     if ACTIVE_CONFIG:
@@ -138,10 +136,13 @@ def send_light_profile():
     for pathname in glob(os.path.join(app.config["LIVE_FOLDER"], "*.json")):
         os.remove(pathname)
 
+    shutil.move(filepath, livepath)
+    logger.info("New validated profile uploaded: %s", livepath)
+
     ACTIVE_CONFIG = ClimateConfig(livepath)
-    flash_lights_thrice()
-    # Here's where we'll use multiprocess to start a light control process with the path to the profile being started.
+    # TODO: Here's where we'll use multiprocess to start a light control process with the path to the profile being started.
     ACTIVE_CONFIG.update()
+    flash_lights_thrice()
 
     # if no issues, then return the 'run' page with the file name
     # return render_template(
