@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SESSION_NAME="web_app"
-VENV_PATH="~/pond_venv"
+VENV_PATH="~/ClimateSimulation/pond_venv"
 WEBAPP_FOLDER="~/ClimateSimulation/"
 PYTHON_SCRIPT="rpi/climate_web_interface.py"
 
