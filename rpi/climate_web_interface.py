@@ -4,6 +4,7 @@ import shutil
 import time
 from flask import Flask, request, render_template, url_for, redirect, send_file
 from glob import glob
+from multiprocessing import Process
 from typing import Optional
 from werkzeug.utils import secure_filename
 from climate_web_utilities import (
@@ -11,7 +12,6 @@ from climate_web_utilities import (
     check_profile_validity,
     ClimateConfig,
 )
-from light_utilities import flash_lights_thrice, ARDUINO
 from control_lights import control_lights
 
 app = Flask(__name__)
@@ -22,6 +22,7 @@ LIVE_FOLDER: str = os.path.join(
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["LIVE_FOLDER"] = LIVE_FOLDER
 ACTIVE_CONFIG: Optional[ClimateConfig] = None
+LIGHT_CONTROLLER: Optional[Process] = None
 
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO").upper())
 logger = logging.getLogger(__name__)
@@ -106,7 +107,7 @@ def view_profile():
 # this is triggered when user clicks "Send to Lights" button on the 'run' page
 @app.post("/run")
 def send_light_profile():
-    global ACTIVE_CONFIG, logger
+    global ACTIVE_CONFIG, LIGHT_CONTROLLER, logger
 
     # check if file is real from the HTML request
     if "file" not in request.files:
@@ -125,15 +126,21 @@ def send_light_profile():
         return "Invalid file format. Please upload .xlsx or .csv file with 2 columns: Time and Light Intensity Value."
     livepath = os.path.join(app.config["LIVE_FOLDER"], safe_fn)
 
+    # If there is an active LIGHT_CONTROLLER running, kill it.
+    if LIGHT_CONTROLLER and LIGHT_CONTROLLER.is_alive():
+        LIGHT_CONTROLLER.kill()
+        LIGHT_CONTROLLER = None
     # If there is an active config eliminate it.
     if ACTIVE_CONFIG:
         ACTIVE_CONFIG = None
         # Give the garbage collector a moment to do its thing.
         time.sleep(2)
-    # delete any other plots or configs in the 'live' folder
+    # delete any other plots, configs or profiles in the 'live' folder
     for pathname in glob(os.path.join(app.config["LIVE_FOLDER"], "*.png")):
         os.remove(pathname)
     for pathname in glob(os.path.join(app.config["LIVE_FOLDER"], "*.json")):
+        os.remove(pathname)
+    for pathname in glob(os.path.join(app.config["LIVE_FOLDER"], "*.xlsx")):
         os.remove(pathname)
 
     shutil.move(filepath, livepath)
@@ -142,7 +149,10 @@ def send_light_profile():
     ACTIVE_CONFIG = ClimateConfig(livepath)
     # TODO: Here's where we'll use multiprocess to start a light control process with the path to the profile being started.
     ACTIVE_CONFIG.update()
-    flash_lights_thrice()
+    LIGHT_CONTROLLER = Process(
+        target=control_lights, args=[livepath, ACTIVE_CONFIG.started]
+    )
+    LIGHT_CONTROLLER.start()
 
     # if no issues, then return the 'run' page with the file name
     # return render_template(
