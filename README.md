@@ -31,7 +31,7 @@ make a virtual environment
 
 install dependencies  
 `cd ClimateSimulation`  
-`python install -e .`  ß
+`pip install -e .`
 
 ### RPi - Running Web App
 

@@ -18,5 +18,8 @@ __pycache__/
 scratch.*
 
 # Contents of live folder:
-rpi/static/live/
+rpi/static/live/*
 rpi/static/plot.png
+
+# Environment
+pond_venv
