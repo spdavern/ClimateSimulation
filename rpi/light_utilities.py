@@ -2,6 +2,7 @@
 # check device port depending on your system (/dev/ttyACM0 and /dev/ttyACM1 are common)
 # viewable in Arduino IDE or `ls /dev/tty*`, set baudrate in IDE
 
+import logging
 import os
 import time
 import serial
@@ -10,6 +11,8 @@ import serial
 # can be set up by the reboot_climate_web_app.sh.
 COMM_PORT = "/dev/ttyACM0"
 BAUD_RATE = 9600
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # class Arduino():
 #     """A dummy Arduino object to facilitate testing."""
@@ -41,13 +44,12 @@ def flash_lights_thrice(arduino=ARDUINO):
         Physically flashes the lights 3 times.
     """
 
-    for i in range(4):
-        print("Flash light...", arduino)
+    for i in range(3):
+        logger.info("Flash light...%s", arduino)
         send_to_arduino(100, arduino)
         time.sleep(0.5)
         send_to_arduino(0, arduino)
         time.sleep(0.5)
-
     return
 
 
