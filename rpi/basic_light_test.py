@@ -7,7 +7,7 @@ import serial
 # check device port depending on your system (/dev/ttyACM0 and /dev/ttyACM1 are common for RPi)
     # viewable in Arduino IDE or `ls /dev/tty*`, set baudrate in IDE
 #COMM_PORT = "/dev/cu.usbmodem1101" 
-COMM_PORT = "/dev/ttyACMO"
+COMM_PORT = "/dev/ttyACM0"
 BAUD_RATE = 9600
 
 try:
