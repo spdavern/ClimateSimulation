@@ -1,7 +1,13 @@
+import logging
+import os
 import pandas as pd
 from datetime import datetime, time, timedelta
+from time import sleep
 from climate_web_utilities import ClimateConfig
-from light_utilities import send_to_arduino
+from light_utilities import flash_lights_thrice, send_to_arduino
+
+logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO").upper())
+logger = logging.getLogger(__name__)
 
 
 def time_to_time_delta(
@@ -36,6 +42,9 @@ def find_next_row(df: pd.DataFrame, elapsed_time: timedelta) -> int:
 
 
 def control_lights(profile_path: str, start_time: datetime):
+    global logger
+    logger.info("Light controller starting as pid=%s", os.getpid())
+    flash_lights_thrice()
     df = pd.read_excel(profile_path)
     time_column_name, intensity_column_name = df.columns
 
@@ -49,7 +58,7 @@ def control_lights(profile_path: str, start_time: datetime):
     )  # Ensures the timedelta days = 0
 
     # go thru each of the rows
-    while row_count <= len(df):
+    while row_count < len(df):
         if row_count == 0:
             # Find the next row in the dataframe that is at or after the current elapsed time:
             # Note, this may not be the 1st row if a profile is "restarted".
@@ -59,10 +68,11 @@ def control_lights(profile_path: str, start_time: datetime):
         intensity = df[intensity_column_name][row_count]
 
         # Set light intensity
+        logger.info("Updating light intensity to %s.", intensity)
         send_to_arduino(intensity)
 
         while elapsed_time <= next_time:
-            time.sleep(1)
+            sleep(1)
             elapsed_time = datetime.now() - start_time
             elapsed_time = elapsed_time - timedelta(days=elapsed_time.days)
         row_count += 1
