@@ -14,13 +14,20 @@ BAUD_RATE = 9600
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# class Arduino():
-#     """A dummy Arduino object to facilitate testing."""
+
+# class Arduino:
+#     """A dummy Arduino class to facilitate testing.
+
+#     To use uncomment this class, comment out the `ARDUINO = serial.Serial...` line below,
+#     and uncomment the `ARDUINO = Arduino()` line below that.
+#     """
+
 #     def __init__(self) -> None:
 #         self.is_open = True
 
 #     def write(self, message):
 #         print(f"Sent to Arduino: {message}")
+
 
 try:
     ARDUINO = serial.Serial(port=COMM_PORT, baudrate=BAUD_RATE)
@@ -66,8 +73,6 @@ def send_to_arduino(val, arduino=ARDUINO):
     """
     if IS_ARDUINO_SETUP:
         arduino.write(bytes(f"{val}\n", "utf-8"))
-        # arduino.write(val)
-
     return
 
 
