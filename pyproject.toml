@@ -13,7 +13,7 @@ dependencies = [
     'flask',
     'openpyxl',
     'matplotlib',
-    'serial'
+    'pyserial'
 ]
 
 [tool.setuptools.packages.find]
