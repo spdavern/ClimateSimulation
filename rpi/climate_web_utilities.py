@@ -220,11 +220,6 @@ def expand_profile_points(df: pd.DataFrame) -> pd.DataFrame:
         df2 = df2._append(row)
         last_row = row.copy()
         idx2 += 1
-    # If the last row isn't at time 23:59:59 add that point.
-    if duration != time().fromisoformat("23:59:59"):
-        last_row[time_col] = time().fromisoformat("23:59:59")
-        last_row.name = idx2
-        df2 = df2._append(last_row)
     return df2
 
 
@@ -281,7 +276,7 @@ def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
         )
         plt.annotate("Start Time", [start, 42], rotation=90, ha="left")
         plt.xlabel("Rasberry Pi Time of Day")
-        plt.title(f"Controlling Profile: {config.profile_filename}")
+        plt.title(f"Controlling Profile: {config.profile_filename}{' (looping)' if config.run_continuously else ''}")
 
     plt.gcf().autofmt_xdate(rotation=90, ha="center")
     ax = plt.gca()
