@@ -114,6 +114,8 @@ def send_light_profile():
         return redirect(request.url)
 
     file = request.files["file"]
+    loop = request.form.get("run_continuous")
+    run_continuous = True if loop else False
     if file.filename == "":
         return redirect(request.url)
     # save the file in 'static/live'
@@ -145,9 +147,9 @@ def send_light_profile():
 
     shutil.move(filepath, livepath)
     logger.info("New validated profile uploaded: %s", livepath)
+    logger.info("The new profile was set to run %s.", "continuously looping" if run_continuous else "once")
 
-    ACTIVE_CONFIG = ClimateConfig(livepath)
-    # TODO: Here's where we'll use multiprocess to start a light control process with the path to the profile being started.
+    ACTIVE_CONFIG = ClimateConfig(livepath, run_continuous)
     ACTIVE_CONFIG.update()
     LIGHT_CONTROLLER = Process(
         target=control_lights, args=[livepath, ACTIVE_CONFIG.started]

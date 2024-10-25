@@ -43,7 +43,7 @@ class ClimateConfig(ABC):
         __del__: Upon deletion of an instance any saved state file is deleted.
     """
 
-    def __init__(self, profile_path: str = None):
+    def __init__(self, profile_path: str = None, run_continuously: bool = True):
         """Initializes the ClimateConfig class."""
         self._profile_filepath: Optional[str] = None
         # If a saved config json exists recover it. (e.g. power outage may have happened)
@@ -53,7 +53,7 @@ class ClimateConfig(ABC):
             self.retrieve_config()
         else:
             self._started: datetime = datetime.now()
-            self.run_continuously: bool = False
+            self.run_continuously: bool = run_continuously
             self.rpi_time_script_finished: Optional[datetime] = None
 
             if profile_path:
