@@ -168,8 +168,8 @@ def expand_profile_points(df: pd.DataFrame) -> pd.DataFrame:
     """Pads a dataframe of duration, intensity values to capture step nature of profiles.
 
     Arguments:
-        df(DataFrame): Dataframe with first column of times in "23:59:59" format and
-            second column of light intensity values.
+        df(DataFrame): Dataframe with first column of timedeltas (time since start) and
+        second column of light intensity values.
 
     Returns (DataFrame):
         Dataframe with extra rows facilitating the plotting of light intensity setting
@@ -199,8 +199,9 @@ def expand_profile_points(df: pd.DataFrame) -> pd.DataFrame:
                 last_row = first_row
             idx2 += 1
         if duration == zero or row[intensity_col] == last_row[intensity_col]:
-            # Skip any duplicate duration = zero rows in profile
-            continue
+            # Skip any duplicate duration = zero rows or duplicate intensities in profile
+            if idx < len(df) - 1:  # Keep the last row of the profile.
+                continue
         # Add a row that has new timedelta and intensity from the last row.
         new_row = last_row.copy()
         new_row[time_col] = row[time_col]
@@ -216,7 +217,7 @@ def expand_profile_points(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
-    # pull in excel file and plot it
+    # Read excel file and transform input data time column to timedeltas from start
     df = pd.read_excel(filepath)
     if df.dtypes[df.columns[0]] == "O" and isinstance(df.iloc[0, 0], time):
         # Pandas column datatype is 'Object', specifically a python datetime.time, in Excel it is a time
@@ -227,10 +228,23 @@ def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
         # Pandas column datatype is a pandas Timestamp, in Excel it is a date
         time_deltas = [(x - df.iloc[0, 0]).to_pytimedelta() for x in df.iloc[:, 0]]
     df[df.columns[0]] = time_deltas
+    # Add data points that facilitate plotting step changes
     df = expand_profile_points(df)
+    # Determine the profile cycle length and last cycle start time.
     cycle_dur = min(max(time_deltas), timedelta(days=1))
-    total_elapsed_time = datetime.now() - config.started
-    cycle_start = config.started + (total_elapsed_time // cycle_dur) * cycle_dur
+    now = datetime.now()
+    if config:
+        total_elapsed_time = now - config.started
+        if config.run_continuously:
+            cycle_start = config.started + (total_elapsed_time // cycle_dur) * cycle_dur
+        else:
+            cycle_start = config.started
+    else:
+        # Facilitates Light Profile View
+        cycle_start = datetime(
+            year=now.year, month=now.month, day=now.day, hour=0, second=0
+        )
+    # Calculate plot x values for the current (or first) cycle.
     times = [cycle_start + x for x in df.iloc[:, 0]]
     values = df.iloc[:, 1]
 
@@ -240,15 +254,17 @@ def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
     # plot cols
     plt.plot(times, values, marker=".")
     plt.grid("both")
-    plt.xlabel("Duration from Start of Profile (Hrs:Min)")
+    plt.xlabel("Duration from Start of Profile")
     plt.ylabel("Light Intensity Value")
     plt.title(str(os.path.basename(filepath)))
     plt.tight_layout()
 
     if config:
         # For life profile label plots with start and current time/duration.
-        now = datetime.now()
         dur = now - cycle_start
+        if dur > cycle_dur and not config.run_continuously:
+            now = cycle_start + cycle_dur
+            dur = cycle_dur
         if cycle_dur < timedelta(minutes=10):
             dur_str = now.strftime("%H:%M:%S")
         else:
