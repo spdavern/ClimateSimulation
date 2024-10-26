@@ -178,12 +178,12 @@ def expand_profile_points(df: pd.DataFrame) -> pd.DataFrame:
     """
     df2 = pd.DataFrame(columns=df.columns)
     idx2 = 0
-    zero = time().fromisoformat("00:00:00")
+    zero = pd.Timedelta(seconds=0)
     time_col = df.columns[0]
     intensity_col = df.columns[1]
     for idx, row in df.iterrows():
         duration = row[time_col]
-        if idx == 1:
+        if idx == 0:
             # If the first row isn't duration = zero create one.
             if duration == zero:
                 row.name = 0
@@ -198,20 +198,12 @@ def expand_profile_points(df: pd.DataFrame) -> pd.DataFrame:
                 df2 = df2._append(first_row)
                 last_row = first_row
             idx2 += 1
-        if duration == zero:
+        if duration == zero or row[intensity_col] == last_row[intensity_col]:
             # Skip any duplicate duration = zero rows in profile
             continue
-        # Add a row that has time minus 1 sec from the next row and intensity from the last row.
+        # Add a row that has new timedelta and intensity from the last row.
         new_row = last_row.copy()
-        hour = (
-            duration.hour - 1
-            if duration.second == 0 and duration.minute == 0
-            else duration.hour
-        )
-        minute = duration.minute - 1 if duration.second == 0 else duration.minute
-        minute = 59 if minute < 0 else minute
-        second = 59 if duration.second == 0 else duration.second - 1
-        new_row[time_col] = time().fromisoformat(f"{hour:02}:{minute:02}:{second:02}")
+        new_row[time_col] = row[time_col]
         new_row.name = idx2
         df2 = df2._append(new_row)
         idx2 += 1
@@ -226,30 +218,24 @@ def expand_profile_points(df: pd.DataFrame) -> pd.DataFrame:
 def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
     # pull in excel file and plot it
     df = pd.read_excel(filepath)
-    df = expand_profile_points(df)
-
-    # Build plot
-    plt.figure(figsize=(10, 6))
-
-    # Prepare x and y data for plotting
-    today = datetime.today().date()
-    if config:
-        # For live profile plots calculate plot times in the context of the last 24 hours
-        start = (
-            datetime.combine(datetime.today().date(), config.started.time())
-            - timedelta(days=1)
-            if config.started < datetime.today() - timedelta(days=1)
-            else config.started
-        )
+    if df.dtypes[df.columns[0]] == "O" and isinstance(df.iloc[0, 0], time):
+        # Pandas column datatype is 'Object', specifically a python datetime.time, in Excel it is a time
         time_deltas = [
             datetime.combine(date.min, x) - datetime.min for x in df.iloc[:, 0].tolist()
         ]
-        times = [start + x for x in time_deltas]
-    else:
-        # For profile viewers plot in the context of from this moment forward.
-        start = today
-        times = [datetime.combine(start, x) for x in df.iloc[:, 0].tolist()]
+    elif df.dtypes[df.columns[0]] == "<M8[ns]":
+        # Pandas column datatype is a pandas Timestamp, in Excel it is a date
+        time_deltas = [(x - df.iloc[0, 0]).to_pytimedelta() for x in df.iloc[:, 0]]
+    df[df.columns[0]] = time_deltas
+    df = expand_profile_points(df)
+    cycle_dur = min(max(time_deltas), timedelta(days=1))
+    total_elapsed_time = datetime.now() - config.started
+    cycle_start = config.started + (total_elapsed_time // cycle_dur) * cycle_dur
+    times = [cycle_start + x for x in df.iloc[:, 0]]
     values = df.iloc[:, 1]
+
+    # Build plot
+    plt.figure(figsize=(10, 6))
 
     # plot cols
     plt.plot(times, values, marker=".")
@@ -262,25 +248,33 @@ def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
     if config:
         # For life profile label plots with start and current time/duration.
         now = datetime.now()
-        dur = now - start
-        dur_str = f"{int(dur.seconds/60/60 % 60):02d}:{int(dur.seconds/60 % 60):02d}"
+        dur = now - cycle_start
+        if cycle_dur < timedelta(minutes=10):
+            dur_str = now.strftime("%H:%M:%S")
+        else:
+            dur_str = now.strftime("%H:%M")
         plt.axvline(x=now, linestyle="--", color="r")
         plt.annotate(dur_str, [now, 86], rotation=90, ha="right")
         plt.annotate("Last Update", [now, 80.5], rotation=90, ha="left")
-        plt.axvline(x=start, linestyle="--", color="r")
+        plt.axvline(x=cycle_start, linestyle="--", color="r")
         plt.annotate(
-            config.started.strftime("%m/%d %H:%M"),
-            [start, 41],
+            config.started.strftime("%m/%d %H:%M:%S"),
+            [cycle_start, 41],
             rotation=90,
             ha="right",
         )
-        plt.annotate("Start Time", [start, 42], rotation=90, ha="left")
+        plt.annotate("Start Time", [cycle_start, 42], rotation=90, ha="left")
         plt.xlabel("Rasberry Pi Time of Day")
-        plt.title(f"Controlling Profile: {config.profile_filename}{' (looping)' if config.run_continuously else ''}")
+        plt.title(
+            f"Controlling Profile: {config.profile_filename}{' (looping)' if config.run_continuously else ''}"
+        )
 
     plt.gcf().autofmt_xdate(rotation=90, ha="center")
     ax = plt.gca()
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
+    if cycle_dur < timedelta(minutes=10):
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S"))
+    else:
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
 
     # save plot to 'static' folder
     plot_path = (
