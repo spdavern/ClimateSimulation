@@ -235,8 +235,9 @@ def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
     now = datetime.now()
     if config:
         total_elapsed_time = now - config.started
+        cycle_num = total_elapsed_time // cycle_dur
         if config.run_continuously:
-            cycle_start = config.started + (total_elapsed_time // cycle_dur) * cycle_dur
+            cycle_start = config.started + cycle_num * cycle_dur
         else:
             cycle_start = config.started
     else:
@@ -244,6 +245,7 @@ def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
         cycle_start = datetime(
             year=now.year, month=now.month, day=now.day, hour=0, second=0
         )
+        cycle_num = 0
     # Calculate plot x values for the current (or first) cycle.
     times = [cycle_start + x for x in df.iloc[:, 0]]
     values = df.iloc[:, 1]
@@ -265,32 +267,38 @@ def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
         if dur > cycle_dur and not config.run_continuously:
             now = cycle_start + cycle_dur
             dur = cycle_dur
-        if cycle_dur < timedelta(minutes=10):
-            dur_str = now.strftime("%H:%M:%S")
-        else:
-            dur_str = now.strftime("%H:%M")
+        time_fmt = "%H:%M:%S" if cycle_dur < timedelta(minutes=10) else "%H:%M"
+        dur_str = now.strftime(time_fmt)
         plt.axvline(x=now, linestyle="--", color="r")
-        plt.annotate(dur_str, [now, 86], rotation=90, ha="right")
+        plt.annotate(dur_str, [now, 84], rotation=90, ha="right")
+        # TODO: To plot value we need to determine what it is. This should be done by
+        #       the same function that does it for control_lights.py.
+        # plt.annotate(0, [now, 0], ha="left")
         plt.annotate("Last Update", [now, 80.5], rotation=90, ha="left")
-        plt.axvline(x=cycle_start, linestyle="--", color="r")
-        plt.annotate(
-            config.started.strftime("%m/%d %H:%M:%S"),
-            [cycle_start, 41],
-            rotation=90,
-            ha="right",
-        )
-        plt.annotate("Start Time", [cycle_start, 42], rotation=90, ha="left")
+        if config.run_continuously and cycle_num:
+            plt.axvline(x=cycle_start, linestyle="--", color="r")
+            plt.annotate(
+                cycle_start.strftime("%m/%d %H:%M:%S"),
+                [cycle_start, 41],
+                rotation=90,
+                ha="right",
+            )
+            plt.annotate(
+                f"Cycle {cycle_num + 1:,} Start Time",
+                [cycle_start, 39],
+                rotation=90,
+                ha="left",
+            )
         plt.xlabel("Rasberry Pi Time of Day")
         plt.title(
             f"Controlling Profile: {config.profile_filename}{' (looping)' if config.run_continuously else ''}"
+            f"\n Started: {config._started.strftime('%m/%d %H:%M:%S')}"
         )
+        plt.tight_layout()
 
     plt.gcf().autofmt_xdate(rotation=90, ha="center")
     ax = plt.gca()
-    if cycle_dur < timedelta(minutes=10):
-        ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S"))
-    else:
-        ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter(time_fmt))
 
     # save plot to 'static' folder
     plot_path = (
