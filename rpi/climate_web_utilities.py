@@ -261,13 +261,13 @@ def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
     plt.title(str(os.path.basename(filepath)))
     plt.tight_layout()
 
+    time_fmt = "%H:%M:%S" if cycle_dur < timedelta(minutes=10) else "%H:%M"
     if config:
         # For life profile label plots with start and current time/duration.
         dur = now - cycle_start
         if dur > cycle_dur and not config.run_continuously:
             now = cycle_start + cycle_dur
             dur = cycle_dur
-        time_fmt = "%H:%M:%S" if cycle_dur < timedelta(minutes=10) else "%H:%M"
         dur_str = now.strftime(time_fmt)
         plt.axvline(x=now, linestyle="--", color="r")
         plt.annotate(dur_str, [now, 84], rotation=90, ha="right")
