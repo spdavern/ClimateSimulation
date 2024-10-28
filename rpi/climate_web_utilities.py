@@ -25,6 +25,67 @@ logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO").upper())
 logger = logging.getLogger(__name__)
 
 
+def RETRIEVE_CONFIG() -> dict:
+    """Retrieves climate configuration from static/live/{CONFIG_NAME}."""
+    config_path = os.path.join(LIVE_FOLDER_PATH, CONFIG_NAME)
+    if os.path.exists(config_path):
+        with open(config_path, "r", encoding="utf-8") as infile:
+            data = json.load(infile)
+    else:
+        logger.warning("No config file was found!")
+        return {}
+    # Populate config from available data.
+    # Note datetimes are saved as strings in jsons because they're not natively serializable.
+    config = {}
+    config["_started"] = (
+        datetime.fromisoformat(data["_started"])
+        if "_started" in data and isinstance(data["_started"], str)
+        else None
+    )
+    config["last_updated"] = (
+        datetime.fromisoformat(data["last_updated"])
+        if "last_updated" in data and isinstance(data["last_updated"], str)
+        else None
+    )
+    config["run_continuously"] = (
+        data["run_continuously"]
+        if "run_continuously" in data and isinstance(data["run_continuously"], bool)
+        else False
+    )
+    config["rpi_time_script_finished"] = (
+        datetime.fromisoformat(data["rpi_time_script_finished"])
+        if "rpi_time_script_finished" in data
+        and isinstance(data["rpi_time_script_finished"], str)
+        else None
+    )
+    config["_profile_filepath"] = (
+        data["_profile_filepath"]
+        if "_profile_filepath" in data
+        and isinstance(data["_profile_filepath"], str)
+        and os.path.exists(data["_profile_filepath"])
+        else None
+    )
+    config["last_intensity"] = (
+        data["last_intensity"]
+        if "last_intensity" in data and isinstance(data["last_intensity"], int)
+        else 0
+    )
+    return config
+
+
+def times_to_timedeltas(df: pd.DataFrame) -> pd.DataFrame:
+    if df.dtypes[df.columns[0]] == "O" and isinstance(df.iloc[0, 0], time):
+        # Pandas column datatype is 'Object', specifically a python datetime.time, in Excel it is a time
+        time_deltas = [
+            datetime.combine(date.min, x) - datetime.min for x in df.iloc[:, 0].tolist()
+        ]
+    elif df.dtypes[df.columns[0]] == "<M8[ns]":
+        # Pandas column datatype is a pandas Timestamp, in Excel it is a date (with time)
+        time_deltas = [(x - df.iloc[0, 0]).to_pytimedelta() for x in df.iloc[:, 0]]
+    df[df.columns[0]] = time_deltas
+    return df
+
+
 class ClimateConfig(ABC):
     """A class to contain the current configuration of the Climate Simulation.
 
@@ -55,6 +116,7 @@ class ClimateConfig(ABC):
             self._started: datetime = datetime.now()
             self.run_continuously: bool = run_continuously
             self.rpi_time_script_finished: Optional[datetime] = None
+            self.last_intensity: int = 0
 
             if profile_path:
                 if os.path.exists(profile_path):
@@ -107,36 +169,31 @@ class ClimateConfig(ABC):
 
     def retrieve_config(self) -> None:
         """Retrieves climate configuration from static/live/{CONFIG_NAME}."""
-        config_path = os.path.join(LIVE_FOLDER_PATH, CONFIG_NAME)
-        if os.path.exists(config_path):
-            with open(config_path, "r", encoding="utf-8") as infile:
-                data = json.load(infile)
-        else:
-            logger.warning("No config file was found!")
-            return
+        data = RETRIEVE_CONFIG()
         # Repopulate the config instance from available data.
         # Note datetimes are saved as strings in jsons because they're not natively serializable.
         self._started = (
-            datetime.fromisoformat(data["_started"])
-            if "_started" in data
+            data["_started"]
+            if data["_started"] and isinstance(data["_started"], datetime)
             else datetime.now()
         )
         self.last_updated = (
-            datetime.fromisoformat(data["last_updated"])
-            if "last_updated" in data
+            data["last_updated"]
+            if data["last_updated"] and isinstance(data["last_updated"], datetime)
             else datetime.now()
         )
         self.run_continuously = (
             data["run_continuously"]
-            if "run_continuously" in data and isinstance(data["run_continuously"], bool)
+            if isinstance(data["run_continuously"], bool)
             else False
         )
         self.rpi_time_script_finished = (
-            datetime.fromisoformat(data["rpi_time_script_finished"])
-            if "rpi_time_script_finished" in data
-            and isinstance(data["rpi_time_script_finished"], str)
+            data["rpi_time_script_finished"]
+            if data["rpi_time_script_finished"]
+            and isinstance(data["rpi_time_script_finished"], datetime)
             else None
         )
+        self.last_intensity = data["last_intensity"]
         self._profile_filepath = (
             data["_profile_filepath"]
             if "_profile_filepath" in data
@@ -217,21 +274,14 @@ def expand_profile_points(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
-    # Read excel file and transform input data time column to timedeltas from start
+    # Get the profile
     df = pd.read_excel(filepath)
-    if df.dtypes[df.columns[0]] == "O" and isinstance(df.iloc[0, 0], time):
-        # Pandas column datatype is 'Object', specifically a python datetime.time, in Excel it is a time
-        time_deltas = [
-            datetime.combine(date.min, x) - datetime.min for x in df.iloc[:, 0].tolist()
-        ]
-    elif df.dtypes[df.columns[0]] == "<M8[ns]":
-        # Pandas column datatype is a pandas Timestamp, in Excel it is a date
-        time_deltas = [(x - df.iloc[0, 0]).to_pytimedelta() for x in df.iloc[:, 0]]
-    df[df.columns[0]] = time_deltas
+    # Transform input data time column to timedeltas
+    df = times_to_timedeltas(df)
     # Add data points that facilitate plotting step changes
     df = expand_profile_points(df)
     # Determine the profile cycle length and last cycle start time.
-    cycle_dur = min(max(time_deltas), timedelta(days=1))
+    cycle_dur = min(max(df[df.columns[0]]), timedelta(days=1))
     now = datetime.now()
     if config:
         total_elapsed_time = now - config.started
