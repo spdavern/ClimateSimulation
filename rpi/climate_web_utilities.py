@@ -318,9 +318,12 @@ def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
         if dur > cycle_dur and not config.run_continuously:
             now = cycle_start + cycle_dur
             dur = cycle_dur
-        dur_str = now.strftime(time_fmt)
+            completed = True
+        else:
+            completed = False
+        dur_str = now.strftime("%m/%d " + time_fmt)
         plt.axvline(x=now, linestyle="--", color="r")
-        plt.annotate(dur_str, [now, 84], rotation=90, ha="right")
+        plt.annotate(dur_str, [now, 78], rotation=90, ha="right")
         # TODO: To plot value we need to determine what it is. This should be done by
         #       the same function that does it for control_lights.py.
         # plt.annotate(0, [now, 0], ha="left")
@@ -341,7 +344,8 @@ def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
             )
         plt.xlabel("Rasberry Pi Time of Day")
         plt.title(
-            f"Controlling Profile: {config.profile_filename}{' (looping)' if config.run_continuously else ''}"
+            f"Controlling Profile: {config.profile_filename}"
+            f"{' (looping)' if config.run_continuously else ' (COMPLETED)' if completed else ''}"
             f"\n Started: {config._started.strftime('%m/%d %H:%M:%S')}"
         )
         plt.tight_layout()
