@@ -147,13 +147,14 @@ def send_light_profile():
 
     shutil.move(filepath, livepath)
     logger.info("New validated profile uploaded: %s", livepath)
-    logger.info("The new profile was set to run %s.", "continuously looping" if run_continuous else "once")
+    logger.info(
+        "The new profile was set to run %s.",
+        "continuously looping" if run_continuous else "once",
+    )
 
     ACTIVE_CONFIG = ClimateConfig(livepath, run_continuous)
     ACTIVE_CONFIG.update()
-    LIGHT_CONTROLLER = Process(
-        target=control_lights, args=[livepath, ACTIVE_CONFIG.started]
-    )
+    LIGHT_CONTROLLER = Process(target=control_lights)
     LIGHT_CONTROLLER.start()
 
     # if no issues, then return the 'run' page with the file name

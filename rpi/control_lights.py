@@ -45,7 +45,7 @@ def save_config(config: dict) -> None:
     return
 
 
-def control_lights(profile_path: str, start_time: datetime):
+def control_lights():
     logger.info("Light controller starting as pid=%s", os.getpid())
     flash_lights_thrice()
     config = RETRIEVE_CONFIG()
