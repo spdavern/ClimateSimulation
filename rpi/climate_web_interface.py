@@ -157,11 +157,9 @@ def send_light_profile():
     LIGHT_CONTROLLER = Process(target=control_lights)
     LIGHT_CONTROLLER.start()
 
-    # if no issues, then return the 'run' page with the file name
-    # return render_template(
-    #     "run_light_profile.html", sent_to_lights=os.path.basename(filepath)
-    # )
-    return render_template("live_light_profile.html")
+    # I may take a short bit to start the run.
+    time.sleep(1)
+    return redirect(url_for("live_light_profile"))
 
 
 # this is called by HTML after user clicks 'View Profile' button
