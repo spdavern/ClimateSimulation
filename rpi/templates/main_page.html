@@ -6,7 +6,7 @@
 <body>
 
     <!-- Website Heading -->
-    <h1>Algae Pond Climate Simulator</h1>
+    <h1>Algae Pond Climate Simulator {{ desc }} in {{ location }}</h1>
 
 
     <!-- Instructions & Example -->
@@ -46,7 +46,7 @@
     <body>
         <p> Download a light profile file that you can modify</p>
         <p> You may need to set your browser to allow it being downloaded:</p>
-        <p> Settings > Privacy and security > Site settings > 130.20.213.253 > Insecure content > Allow</p>
+        <p> Settings > Privacy and security > Site settings > {{ ip }} > Insecure content > Allow</p>
         <button onclick="window.location.href='{{ url_for('download') }}'">Download</button>                
     </body>
 

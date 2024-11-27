@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import shutil
@@ -19,6 +20,9 @@ UPLOAD_FOLDER: str = os.path.join(os.path.dirname(os.path.abspath(__file__)), "s
 LIVE_FOLDER: str = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "static/live"
 )
+DATA_FOLDER: str = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "data"
+)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["LIVE_FOLDER"] = LIVE_FOLDER
 ACTIVE_CONFIG: Optional[ClimateConfig] = None
@@ -26,6 +30,14 @@ LIGHT_CONTROLLER: Optional[Process] = None
 
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO").upper())
 logger = logging.getLogger(__name__)
+
+with open(DATA_FOLDER + "/devices.json", 'r', encoding='utf-8') as infile:
+    DEVICES = json.load(infile)
+def device_info(ip_address: str) -> dict:
+    ip_address = ip_address[:ip_address.index(":")] if ":" in ip_address else ip_address
+    info = DEVICES[ip_address] if ip_address in DEVICES else {"name": "Unknown", "description": "None", "location": "unknown"}
+    info['ip'] = ip_address
+    return info
 
 
 # Main Page
@@ -35,7 +47,12 @@ def main_page():
     if not ACTIVE_CONFIG:
         if os.path.exists(os.path.join(LIVE_FOLDER, "climate_config.json")):
             ACTIVE_CONFIG = ClimateConfig()
-    return render_template("main_page.html", file_uploaded=False)
+    device = device_info(request.headers.get('Host'))
+    return render_template("main_page.html",
+                           file_uploaded=False,
+                           desc=device["description"],
+                           location=device["location"],
+                           ip=device['ip'])
 
 
 # Example and Instructions Page
@@ -54,13 +71,18 @@ def live_light_profile():
         if os.path.exists(os.path.join(LIVE_FOLDER, "climate_config.json")):
             ACTIVE_CONFIG = ClimateConfig()
             ACTIVE_CONFIG.update()
-    return render_template("live_light_profile.html")
+    device = device_info(request.headers.get('Host'))
+    return render_template("live_light_profile.html",
+                           location=device["location"])
 
 
 # Upload and Run Profile Page
 @app.get("/run")
 def run_light_profile():
-    return render_template("run_light_profile.html")
+    device = device_info(request.headers.get('Host'))
+    return render_template("run_light_profile.html",
+                           desc= device["description"],
+                           location=device["location"])
 
 
 # Light Profile Viewer Page
