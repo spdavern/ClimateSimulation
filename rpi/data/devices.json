@@ -1,0 +1,22 @@
+{
+    "130.20.214.15": {
+        "name": "Obiwan",
+        "description": "Dev System 2",
+        "location": "Emma's office (MSL7)"
+    },
+    "130.20.213.253": {
+        "name": "BB8",
+        "description": "Production 1",
+        "location": "MSL5 Analytical Lab"
+    },
+    "130.20.214.185": {
+        "name": "R2D2",
+        "description": "Production 2",
+        "location": "MSL1 Wet Lab"
+    },
+    "130.20.213.231": {
+        "name": "C3PO",
+        "description": "Dev System 1",
+        "location": "Phil's office (MSL7)"
+    }
+}
