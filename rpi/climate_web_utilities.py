@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 def RETRIEVE_CONFIG() -> dict:
-    """Retrieves climate configuration from static/live/{CONFIG_NAME}."""
+    """Retrieves climate configuration dictionary from static/live/{CONFIG_NAME}."""
     config_path = os.path.join(LIVE_FOLDER_PATH, CONFIG_NAME)
     if os.path.exists(config_path):
         with open(config_path, "r", encoding="utf-8") as infile:
@@ -65,10 +65,11 @@ def RETRIEVE_CONFIG() -> dict:
         and os.path.exists(data["_profile_filepath"])
         else None
     )
+    config["pid"] = data["pid"] if "pid" in data else None
     config["last_intensity"] = (
         data["last_intensity"]
         if "last_intensity" in data and isinstance(data["last_intensity"], int)
-        else 0
+        else int(data["last_intensity"]) if data["last_intensity"].isnumeric() else 0
     )
     return config
 
@@ -117,6 +118,7 @@ class ClimateConfig(ABC):
             self.run_continuously: bool = run_continuously
             self.rpi_time_script_finished: Optional[datetime] = None
             self.last_intensity: int = 0
+            self.pid: Optional[int] = None
 
             if profile_path:
                 if os.path.exists(profile_path):
@@ -153,10 +155,18 @@ class ClimateConfig(ABC):
             os.path.basename(self._profile_filepath) if self._profile_filepath else ""
         )
 
-    def update(self) -> None:
-        """Updates the live plot and 'remembered' state."""
-        # Should perhaps update live_plot.png here. If so, probably should be deleted in __del__.
-        self.last_updated = datetime.now()
+    def update(self, retreive: bool=False) -> None:
+        """Updates the live plot and 'remembered' state.
+        
+        Parameters:
+            retreive (bool): If True values are reteived from the json file.
+                This should occur when a spawned task has been updating the
+                lights and therefore the config.json.
+        """
+        if retreive:
+            self.retrieve_config()
+        else:
+            self.last_updated = datetime.now()
         plot_excel(self._profile_filepath, self)
         self.save()
 
@@ -201,6 +211,7 @@ class ClimateConfig(ABC):
             and os.path.exists(data["_profile_filepath"])
             else None
         )
+        self.pid = data["pid"] if "pid" in data else None
         if not self._profile_filepath:
             logger.warning(
                 "No valid profile file found in config! Populated with 'None'."
@@ -323,11 +334,14 @@ def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
             completed = False
         dur_str = now.strftime("%m/%d " + time_fmt)
         plt.axvline(x=now, linestyle="--", color="r")
-        plt.annotate(dur_str, [now, 78], rotation=90, ha="right")
+        an_y = (78, 80.5) if config.last_intensity < 60. else (0, 2.5)
+        intensity = config.last_intensity
+        plt.annotate(f"{intensity}", [now, intensity + 1])
+        plt.annotate(dur_str, [now, an_y[0]], rotation=90, ha="right")
         # TODO: To plot value we need to determine what it is. This should be done by
         #       the same function that does it for control_lights.py.
         # plt.annotate(0, [now, 0], ha="left")
-        plt.annotate("Last Update", [now, 80.5], rotation=90, ha="left")
+        plt.annotate("Last Update", [now, an_y[1]], rotation=90, ha="left")
         if config.run_continuously and cycle_num:
             plt.axvline(x=cycle_start, linestyle="--", color="r")
             plt.annotate(
