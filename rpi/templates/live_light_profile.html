@@ -16,9 +16,11 @@
 
     <h2>View 'Live' Profile at {{ location }}</h2>
     <p>If no plot is shown below, then there is no profile running on the pond lights!</P>
-    <p>The left-most red line shows the date and time the current profiles was initiated.</p>
-    <p>The right-most red line shows the current duration into the profile (on the line) and where it crosses the profile is the intensity that is running on the pond.</p>
     <img src="{{ url_for('display_live_plot') }}" alt="'Live' Light Profile">
-
+    <p></p>
+    <p>If the uploaded profile was set to loop the title of the plot will show '(looping)', otherwise it will only run once.</p>
+    <p>The left-most vertical red line, if it exists, shows the date and time the current profile cycle was initiated.</p>
+    <p>The right-most vertical red line shows the current point into the profile (on the line) and the light intensity that is running on the pond.</p>
+    <p></p>
 </body>
 </html>
