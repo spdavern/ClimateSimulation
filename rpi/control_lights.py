@@ -6,7 +6,6 @@ from datetime import datetime, date, time, timedelta
 from time import sleep
 from typing import Optional
 from climate_web_utilities import (
-    ClimateConfig,
     CONFIG_NAME,
     LIVE_FOLDER_PATH,
     RETRIEVE_CONFIG,
@@ -46,10 +45,15 @@ def save_config(config: dict) -> None:
 
 
 def control_lights():
-    logger.info("Light controller starting as pid=%s", os.getpid())
-    flash_lights_thrice()
+    # Get and save pid immediately before taking the time to flash the lights.
+    pid = os.getpid()
+    logger.info("Light controller starting as pid=%s", pid)
     config = RETRIEVE_CONFIG()
+    config["pid"] = pid
     start_time = config["_started"]
+    save_config(config)
+    # Confirm new light controller by flashing lights:
+    flash_lights_thrice()
     # Read profile excel file
     df = pd.read_excel(config["_profile_filepath"])
     time_column_name, intensity_column_name = df.columns[:2]
@@ -105,11 +109,5 @@ def control_lights():
         dur_into_cycle = now - cycle_start
         controlling = config["run_continuously"]
     config["rpi_time_script_finished"] = datetime.now()
+    config["pid"] = None
     save_config(config)
-
-
-if __name__ == "__main__":
-    # Normally the config has already been written and contains the path to the xlsx and when it stared.
-    config = ClimateConfig()
-    if config.profile_filename:
-        control_lights(config._profile_filepath, config.started)

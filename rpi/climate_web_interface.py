@@ -1,9 +1,10 @@
 import json
 import logging
 import os
+import psutil
 import shutil
 import time
-from flask import Flask, request, render_template, url_for, redirect, send_file
+from flask import Flask, request, render_template, url_for, redirect, send_file, g
 from glob import glob
 from multiprocessing import Process
 from typing import Optional
@@ -39,14 +40,57 @@ def device_info(ip_address: str) -> dict:
     info['ip'] = ip_address
     return info
 
+# Check for pre-existing climate_config.json
+if os.path.exists(os.path.join(LIVE_FOLDER, "climate_config.json")):
+    ACTIVE_CONFIG = ClimateConfig()
+    # Check if a Light Controller process is supposed to be running and is.
+    if ACTIVE_CONFIG.pid:
+        with app.app_context(): # Needed to access Flask's g object.
+            try:
+                pid_process = psutil.Process(ACTIVE_CONFIG.pid)
+                if pid_process.is_running:
+                    logger.info("Previously started Light Controller still running as pid: %s",
+                                ACTIVE_CONFIG.pid)
+                else:
+                    # I'm not sure this condition can exist, but I'll report it if so.
+                    logger.info("Previous Light Controller pid is no longer running, but still exists, pid: %s",
+                                ACTIVE_CONFIG.pid)
+                g.pid = ACTIVE_CONFIG.pid
+            except psutil.NoSuchProcess:
+                # The Light Controller died before completion.
+                if hasattr(g, "pid") and g.pid:
+                    # Saving pid in Flask's g object is an attempt to prevent multiple Light Controllers
+                    # from being started which happened without this code. Using python globals as I've
+                    # done has thread/process issues which I've tried to address. I've left the globals
+                    # because g's lifetime is a Flask session which could be shorter than a 
+                    # Light Controller's. There's perhaps a different more rigorous/appropriate way.
+                    try:
+                        pid_process = psutil.Process(g.pid)
+                        if pid_process.is_running:
+                            logger.info("PID found from Flask global and is running: %s", g.pid)
+                            ACTIVE_CONFIG.pid = g.pid
+                        else:
+                            logger.info("PID found from Flask global is not running, but still exists: %s",
+                                        g.pid)
+                        restart = False
+                    except psutil.NoSuchProcess:
+                        restart = True
+                        logger.info("PID found from Flask global is not running: %s. "
+                                    "Light Controller will be restarted.", g.pid)
+                        g.pid = None
+                else:
+                    restart = True
+                if restart:
+                    logger.info("Light Controller being restarted...")
+                    LIGHT_CONTROLLER = Process(target=control_lights)
+                    LIGHT_CONTROLLER.start()
+                    time.sleep(1)
+                    ACTIVE_CONFIG.retrieve_config()
+                    g.pid = ACTIVE_CONFIG.pid
 
 # Main Page
 @app.get("/")
 def main_page():
-    global ACTIVE_CONFIG, LIVE_FOLDER
-    if not ACTIVE_CONFIG:
-        if os.path.exists(os.path.join(LIVE_FOLDER, "climate_config.json")):
-            ACTIVE_CONFIG = ClimateConfig()
     device = device_info(request.headers.get('Host'))
     return render_template("main_page.html",
                            file_uploaded=False,
@@ -66,11 +110,11 @@ def example_page():
 def live_light_profile():
     global ACTIVE_CONFIG, LIVE_FOLDER
     if ACTIVE_CONFIG:
-        ACTIVE_CONFIG.update()
+        ACTIVE_CONFIG.update(retreive=True)
     else:
         if os.path.exists(os.path.join(LIVE_FOLDER, "climate_config.json")):
             ACTIVE_CONFIG = ClimateConfig()
-            ACTIVE_CONFIG.update()
+            ACTIVE_CONFIG.update(retreive=True)
     device = device_info(request.headers.get('Host'))
     return render_template("live_light_profile.html",
                            location=device["location"])
@@ -150,6 +194,7 @@ def send_light_profile():
         return "Invalid file format. Please upload .xlsx or .csv file with 2 columns: Time and Light Intensity Value."
     livepath = os.path.join(app.config["LIVE_FOLDER"], safe_fn)
 
+    g.pid = None
     # If there is an active LIGHT_CONTROLLER running, kill it.
     if LIGHT_CONTROLLER and LIGHT_CONTROLLER.is_alive():
         LIGHT_CONTROLLER.kill()
@@ -178,8 +223,10 @@ def send_light_profile():
     ACTIVE_CONFIG.update()
     LIGHT_CONTROLLER = Process(target=control_lights)
     LIGHT_CONTROLLER.start()
+    # climate_config.json's pid key/value will be saved by control_lights.
+    g.pid = LIGHT_CONTROLLER.pid
 
-    # I may take a short bit to start the run.
+    # It may take a short bit to start the run.
     time.sleep(1)
     return redirect(url_for("live_light_profile"))
 
@@ -214,5 +261,5 @@ def download():
 
 # Main Driver Function
 if __name__ == "__main__":
-
     app.run(host="0.0.0.0", port=5000, debug=True)
+    g.pid = None
