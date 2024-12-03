@@ -114,7 +114,8 @@ class ClimateConfig(ABC):
             logger.info("An existing config was found - instantiating from it!")
             self.retrieve_config()
         else:
-            self._started: datetime = datetime.now()
+            now = datetime.now()
+            self._started: datetime = now - timedelta(microseconds=now.microsecond)
             self.run_continuously: bool = run_continuously
             self.rpi_time_script_finished: Optional[datetime] = None
             self.last_intensity: int = 0
@@ -166,7 +167,8 @@ class ClimateConfig(ABC):
         if retreive:
             self.retrieve_config()
         else:
-            self.last_updated = datetime.now()
+            now = datetime.now()
+            self.last_updated = now - timedelta(microseconds=now.microsecond)
         plot_excel(self._profile_filepath, self)
         self.save()
 
@@ -294,6 +296,7 @@ def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
     # Determine the profile cycle length and last cycle start time.
     cycle_dur = min(max(df[df.columns[0]]), timedelta(days=1))
     now = datetime.now()
+    now = now - timedelta(microseconds=now.microsecond)
     if config:
         total_elapsed_time = now - config.started
         cycle_num = total_elapsed_time // cycle_dur
@@ -336,7 +339,11 @@ def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
         plt.axvline(x=now, linestyle="--", color="r")
         an_y = (78, 80.5) if config.last_intensity < 60. else (0, 2.5)
         intensity = config.last_intensity
-        plt.annotate(f"{intensity}", [now, intensity + 1])
+        plt.annotate(f"{intensity}", xy=(now, intensity),
+                     xytext=(now + 2*cycle_dur/100, intensity + 5),
+                     arrowprops=dict(facecolor='black', width=1,
+                                     headwidth=6, headlength=6)
+                     )
         plt.annotate(dur_str, [now, an_y[0]], rotation=90, ha="right")
         # TODO: To plot value we need to determine what it is. This should be done by
         #       the same function that does it for control_lights.py.

@@ -62,6 +62,7 @@ def control_lights():
     # Determine the profile cycle length and where the current time is relative to when it was started.
     cycle_dur = max(df[time_column_name])
     now = datetime.now()
+    now = now - timedelta(microseconds=now.microsecond)
     total_elapsed_time = now - start_time
     cycle_num = total_elapsed_time // cycle_dur
     cycle_start = start_time + cycle_num * cycle_dur
@@ -100,11 +101,13 @@ def control_lights():
             while dur_into_cycle <= next_time:
                 sleep(0.5)
                 now = datetime.now()
+                now = now - timedelta(microseconds=now.microsecond)
                 dur_into_cycle = now - cycle_start
             row_count += 1
         row_count = 0
         cycle_num += 1
         now = datetime.now()
+        now = now - timedelta(microseconds=now.microsecond)
         cycle_start = start_time + cycle_num * cycle_dur
         dur_into_cycle = now - cycle_start
         controlling = config["run_continuously"]
