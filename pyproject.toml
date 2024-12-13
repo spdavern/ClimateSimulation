@@ -13,6 +13,7 @@ dependencies = [
     'flask',
     'openpyxl',
     'matplotlib',
+    'psutil',
     'pyserial'
 ]
 
