@@ -24,6 +24,10 @@ open a terminal
 `sudo apt-get update`  
 `sudo apt-get install tmux`  
 
+Set the RaspberryPi's given hostname: (defaults to raspberrypi)
+`sudo hostnamectl set-hostname <Given_Name>`  
+Consider installing iTerm2 Shell Integration so that the hostname is displayed in the terminal window. (iTerm2 > Install Shell Integration)
+
 Clone the repo into the pond user's home folder:  
 `cd ~`  
 `git pull https://github.com/philparisi/climatesimulation`  
