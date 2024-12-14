@@ -256,8 +256,8 @@ def expand_profile_points(df: pd.DataFrame) -> pd.DataFrame:
         if idx == 0:
             # If the first row isn't duration = zero create one.
             if duration == zero:
+                df2.loc[0] = [timedelta(0), 0]
                 row.name = 0
-                df2 = df2._append(row)
                 last_row = row
             else:
                 # Otherwise use the initial row.
