@@ -45,6 +45,7 @@ def save_config(config: dict) -> None:
 
 
 def control_lights():
+    """Controls light intensity and updates climate_config.json."""
     # Get and save pid immediately before taking the time to flash the lights.
     pid = os.getpid()
     logger.info("Light controller starting as pid=%s", pid)
@@ -59,6 +60,13 @@ def control_lights():
     time_column_name, intensity_column_name = df.columns[:2]
     # Transform input data time column to timedeltas
     df = times_to_timedeltas(df)
+
+    def update_and_report(time_point: datetime, update_intensity: float):
+        send_to_arduino(update_intensity)
+        config["last_updated"] = time_point
+        config["last_intensity"] = update_intensity
+        save_config(config)
+
     # Determine the profile cycle length and where the current time is relative to when it was started.
     cycle_dur = max(df[time_column_name])
     now = datetime.now()
@@ -72,30 +80,33 @@ def control_lights():
             "Duration since start already > profile cycle length. Light controller done."
         )
         controlling = False
+        row_count = len(df) - 1
     else:
         # Find the next row in the dataframe that is at or after the current elapsed time:
         # Note, this may not be the 1st row if a profile is "restarted".
         row_count = find_next_row(df, dur_into_cycle)
-    last_intensity = df[intensity_column_name][0]
+    last_intensity = df[intensity_column_name][max(0, row_count-1)]
+    logger.info(
+        "%s: Initializing light intensity to %s by pid %s."
+        % (now.strftime("%m/%d %H:%M:%S"), last_intensity, config['pid'])
+    )
+    update_and_report(now, last_intensity)
 
     controlling = True
     while controlling:
         # go thru each of the rows
-        while row_count < len(df):
+        while row_count < len(df)-2:
             # Extract the "next" row's time and intensity values:
-            next_time = df[time_column_name][row_count]
-            intensity = df[intensity_column_name][row_count]
+            next_time = df[time_column_name][row_count+1]
+            intensity = df[intensity_column_name][row_count+1]
 
             if intensity != last_intensity:
                 # Set light intensity
                 logger.info(
-                    "%s: Updating light intensity to %s."
-                    % (now.strftime("%m/%d %H:%M:%S"), intensity)
+                    "%s: Updating light intensity to %s by pid %s."
+                    % (now.strftime("%m/%d %H:%M:%S"), intensity, config['pid'])
                 )
-                send_to_arduino(intensity)
-                config["last_updated"] = now
-                config["last_intensity"] = intensity
-                save_config(config)
+                update_and_report(now, intensity)
                 last_intensity = intensity
 
             while dur_into_cycle <= next_time:
@@ -111,6 +122,13 @@ def control_lights():
         cycle_start = start_time + cycle_num * cycle_dur
         dur_into_cycle = now - cycle_start
         controlling = config["run_continuously"]
+    intensity = df[intensity_column_name].iloc[-1]
+    if intensity != last_intensity:
+        logger.info(
+            "%s, Final light intensity to %s by pid %s."
+            % (now.strftime("%m/%d %H:%M:%S"), intensity, config['pid'])
+        )
+        update_and_report(now, intensity)
     config["rpi_time_script_finished"] = datetime.now()
     config["pid"] = None
     save_config(config)
