@@ -298,6 +298,8 @@ def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
     now = datetime.now()
     now = now - timedelta(microseconds=now.microsecond)
     if config:
+        if now - config.last_updated < timedelta(seconds=1.5):
+            now = config.last_updated
         total_elapsed_time = now - config.started
         cycle_num = total_elapsed_time // cycle_dur
         if config.run_continuously:

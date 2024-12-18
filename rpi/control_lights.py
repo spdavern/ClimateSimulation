@@ -84,22 +84,20 @@ def control_lights():
     else:
         # Find the next row in the dataframe that is at or after the current elapsed time:
         # Note, this may not be the 1st row if a profile is "restarted".
-        row_count = find_next_row(df, dur_into_cycle)
-    last_intensity = df[intensity_column_name][max(0, row_count-1)]
+        row_count = max(0, find_next_row(df, dur_into_cycle) - 1)
+    next_time = df[time_column_name][row_count + 1]
+    intensity = df[intensity_column_name][row_count]
     logger.info(
         "%s: Initializing light intensity to %s by pid %s."
-        % (now.strftime("%m/%d %H:%M:%S"), last_intensity, config['pid'])
+        % (now.strftime("%m/%d %H:%M:%S"), intensity, config['pid'])
     )
-    update_and_report(now, last_intensity)
+    update_and_report(now, intensity)
+    last_intensity = intensity
 
     controlling = True
     while controlling:
         # go thru each of the rows
-        while row_count < len(df)-2:
-            # Extract the "next" row's time and intensity values:
-            next_time = df[time_column_name][row_count+1]
-            intensity = df[intensity_column_name][row_count+1]
-
+        while row_count < len(df)-1:
             if intensity != last_intensity:
                 # Set light intensity
                 logger.info(
@@ -115,6 +113,9 @@ def control_lights():
                 now = now - timedelta(microseconds=now.microsecond)
                 dur_into_cycle = now - cycle_start
             row_count += 1
+            # Extract the "next" row's time and the new intensity:
+            next_time = df[time_column_name][row_count + 1] if row_count < len(df)-1 else df[time_column_name][1]
+            intensity = df[intensity_column_name][row_count]
         row_count = 0
         cycle_num += 1
         now = datetime.now()
@@ -122,7 +123,7 @@ def control_lights():
         cycle_start = start_time + cycle_num * cycle_dur
         dur_into_cycle = now - cycle_start
         controlling = config["run_continuously"]
-    intensity = df[intensity_column_name].iloc[-1]
+        intensity = df[intensity_column_name].iloc[0] if config["run_continuously"] else df[intensity_column_name].iloc[-1]
     if intensity != last_intensity:
         logger.info(
             "%s, Final light intensity to %s by pid %s."
