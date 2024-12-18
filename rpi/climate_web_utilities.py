@@ -25,6 +25,68 @@ logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO").upper())
 logger = logging.getLogger(__name__)
 
 
+def RETRIEVE_CONFIG() -> dict:
+    """Retrieves climate configuration dictionary from static/live/{CONFIG_NAME}."""
+    config_path = os.path.join(LIVE_FOLDER_PATH, CONFIG_NAME)
+    if os.path.exists(config_path):
+        with open(config_path, "r", encoding="utf-8") as infile:
+            data = json.load(infile)
+    else:
+        logger.warning("No config file was found!")
+        return {}
+    # Populate config from available data.
+    # Note datetimes are saved as strings in jsons because they're not natively serializable.
+    config = {}
+    config["_started"] = (
+        datetime.fromisoformat(data["_started"])
+        if "_started" in data and isinstance(data["_started"], str)
+        else None
+    )
+    config["last_updated"] = (
+        datetime.fromisoformat(data["last_updated"])
+        if "last_updated" in data and isinstance(data["last_updated"], str)
+        else None
+    )
+    config["run_continuously"] = (
+        data["run_continuously"]
+        if "run_continuously" in data and isinstance(data["run_continuously"], bool)
+        else False
+    )
+    config["rpi_time_script_finished"] = (
+        datetime.fromisoformat(data["rpi_time_script_finished"])
+        if "rpi_time_script_finished" in data
+        and isinstance(data["rpi_time_script_finished"], str)
+        else None
+    )
+    config["_profile_filepath"] = (
+        data["_profile_filepath"]
+        if "_profile_filepath" in data
+        and isinstance(data["_profile_filepath"], str)
+        and os.path.exists(data["_profile_filepath"])
+        else None
+    )
+    config["pid"] = data["pid"] if "pid" in data else None
+    config["last_intensity"] = (
+        data["last_intensity"]
+        if "last_intensity" in data and isinstance(data["last_intensity"], int)
+        else int(data["last_intensity"]) if data["last_intensity"].isnumeric() else 0
+    )
+    return config
+
+
+def times_to_timedeltas(df: pd.DataFrame) -> pd.DataFrame:
+    if df.dtypes[df.columns[0]] == "O" and isinstance(df.iloc[0, 0], time):
+        # Pandas column datatype is 'Object', specifically a python datetime.time, in Excel it is a time
+        time_deltas = [
+            datetime.combine(date.min, x) - datetime.min for x in df.iloc[:, 0].tolist()
+        ]
+    elif df.dtypes[df.columns[0]] == "<M8[ns]":
+        # Pandas column datatype is a pandas Timestamp, in Excel it is a date (with time)
+        time_deltas = [(x - df.iloc[0, 0]).to_pytimedelta() for x in df.iloc[:, 0]]
+    df[df.columns[0]] = time_deltas
+    return df
+
+
 class ClimateConfig(ABC):
     """A class to contain the current configuration of the Climate Simulation.
 
@@ -43,7 +105,7 @@ class ClimateConfig(ABC):
         __del__: Upon deletion of an instance any saved state file is deleted.
     """
 
-    def __init__(self, profile_path: str = None):
+    def __init__(self, profile_path: str = None, run_continuously: bool = True):
         """Initializes the ClimateConfig class."""
         self._profile_filepath: Optional[str] = None
         # If a saved config json exists recover it. (e.g. power outage may have happened)
@@ -52,9 +114,12 @@ class ClimateConfig(ABC):
             logger.info("An existing config was found - instantiating from it!")
             self.retrieve_config()
         else:
-            self._started: datetime = datetime.now()
-            self.run_continuously: bool = False
+            now = datetime.now()
+            self._started: datetime = now - timedelta(microseconds=now.microsecond)
+            self.run_continuously: bool = run_continuously
             self.rpi_time_script_finished: Optional[datetime] = None
+            self.last_intensity: int = 0
+            self.pid: Optional[int] = None
 
             if profile_path:
                 if os.path.exists(profile_path):
@@ -91,10 +156,19 @@ class ClimateConfig(ABC):
             os.path.basename(self._profile_filepath) if self._profile_filepath else ""
         )
 
-    def update(self) -> None:
-        """Updates the live plot and 'remembered' state."""
-        # Should perhaps update live_plot.png here. If so, probably should be deleted in __del__.
-        self.last_updated = datetime.now()
+    def update(self, retreive: bool=False) -> None:
+        """Updates the live plot and 'remembered' state.
+        
+        Parameters:
+            retreive (bool): If True values are reteived from the json file.
+                This should occur when a spawned task has been updating the
+                lights and therefore the config.json.
+        """
+        if retreive:
+            self.retrieve_config()
+        else:
+            now = datetime.now()
+            self.last_updated = now - timedelta(microseconds=now.microsecond)
         plot_excel(self._profile_filepath, self)
         self.save()
 
@@ -107,36 +181,31 @@ class ClimateConfig(ABC):
 
     def retrieve_config(self) -> None:
         """Retrieves climate configuration from static/live/{CONFIG_NAME}."""
-        config_path = os.path.join(LIVE_FOLDER_PATH, CONFIG_NAME)
-        if os.path.exists(config_path):
-            with open(config_path, "r", encoding="utf-8") as infile:
-                data = json.load(infile)
-        else:
-            logger.warning("No config file was found!")
-            return
+        data = RETRIEVE_CONFIG()
         # Repopulate the config instance from available data.
         # Note datetimes are saved as strings in jsons because they're not natively serializable.
         self._started = (
-            datetime.fromisoformat(data["_started"])
-            if "_started" in data
+            data["_started"]
+            if data["_started"] and isinstance(data["_started"], datetime)
             else datetime.now()
         )
         self.last_updated = (
-            datetime.fromisoformat(data["last_updated"])
-            if "last_updated" in data
+            data["last_updated"]
+            if data["last_updated"] and isinstance(data["last_updated"], datetime)
             else datetime.now()
         )
         self.run_continuously = (
             data["run_continuously"]
-            if "run_continuously" in data and isinstance(data["run_continuously"], bool)
+            if isinstance(data["run_continuously"], bool)
             else False
         )
         self.rpi_time_script_finished = (
-            datetime.fromisoformat(data["rpi_time_script_finished"])
-            if "rpi_time_script_finished" in data
-            and isinstance(data["rpi_time_script_finished"], str)
+            data["rpi_time_script_finished"]
+            if data["rpi_time_script_finished"]
+            and isinstance(data["rpi_time_script_finished"], datetime)
             else None
         )
+        self.last_intensity = data["last_intensity"]
         self._profile_filepath = (
             data["_profile_filepath"]
             if "_profile_filepath" in data
@@ -144,6 +213,7 @@ class ClimateConfig(ABC):
             and os.path.exists(data["_profile_filepath"])
             else None
         )
+        self.pid = data["pid"] if "pid" in data else None
         if not self._profile_filepath:
             logger.warning(
                 "No valid profile file found in config! Populated with 'None'."
@@ -168,8 +238,8 @@ def expand_profile_points(df: pd.DataFrame) -> pd.DataFrame:
     """Pads a dataframe of duration, intensity values to capture step nature of profiles.
 
     Arguments:
-        df(DataFrame): Dataframe with first column of times in "23:59:59" format and
-            second column of light intensity values.
+        df(DataFrame): Dataframe with first column of timedeltas (time since start) and
+        second column of light intensity values.
 
     Returns (DataFrame):
         Dataframe with extra rows facilitating the plotting of light intensity setting
@@ -178,16 +248,16 @@ def expand_profile_points(df: pd.DataFrame) -> pd.DataFrame:
     """
     df2 = pd.DataFrame(columns=df.columns)
     idx2 = 0
-    zero = time().fromisoformat("00:00:00")
+    zero = pd.Timedelta(seconds=0)
     time_col = df.columns[0]
     intensity_col = df.columns[1]
     for idx, row in df.iterrows():
         duration = row[time_col]
-        if idx == 1:
+        if idx == 0:
             # If the first row isn't duration = zero create one.
             if duration == zero:
+                df2.loc[0] = [timedelta(0), 0]
                 row.name = 0
-                df2 = df2._append(row)
                 last_row = row
             else:
                 # Otherwise use the initial row.
@@ -198,20 +268,13 @@ def expand_profile_points(df: pd.DataFrame) -> pd.DataFrame:
                 df2 = df2._append(first_row)
                 last_row = first_row
             idx2 += 1
-        if duration == zero:
-            # Skip any duplicate duration = zero rows in profile
-            continue
-        # Add a row that has time minus 1 sec from the next row and intensity from the last row.
+        if duration == zero or row[intensity_col] == last_row[intensity_col]:
+            # Skip any duplicate duration = zero rows or duplicate intensities in profile
+            if idx < len(df) - 1:  # Keep the last row of the profile.
+                continue
+        # Add a row that has new timedelta and intensity from the last row.
         new_row = last_row.copy()
-        hour = (
-            duration.hour - 1
-            if duration.second == 0 and duration.minute == 0
-            else duration.hour
-        )
-        minute = duration.minute - 1 if duration.second == 0 else duration.minute
-        minute = 59 if minute < 0 else minute
-        second = 59 if duration.second == 0 else duration.second - 1
-        new_row[time_col] = time().fromisoformat(f"{hour:02}:{minute:02}:{second:02}")
+        new_row[time_col] = row[time_col]
         new_row.name = idx2
         df2 = df2._append(new_row)
         idx2 += 1
@@ -220,72 +283,99 @@ def expand_profile_points(df: pd.DataFrame) -> pd.DataFrame:
         df2 = df2._append(row)
         last_row = row.copy()
         idx2 += 1
-    # If the last row isn't at time 23:59:59 add that point.
-    if duration != time().fromisoformat("23:59:59"):
-        last_row[time_col] = time().fromisoformat("23:59:59")
-        last_row.name = idx2
-        df2 = df2._append(last_row)
     return df2
 
 
 def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
-    # pull in excel file and plot it
+    now = datetime.now()
+    now = now - timedelta(microseconds=now.microsecond)
+    # Get the profile
     df = pd.read_excel(filepath)
+    # Transform input data time column to timedeltas
+    df = times_to_timedeltas(df)
+    # Add data points that facilitate plotting step changes
     df = expand_profile_points(df)
+    # Determine the profile cycle length and last cycle start time.
+    cycle_dur = min(max(df[df.columns[0]]), timedelta(days=1))
+    if config:
+        if now - config.last_updated < timedelta(seconds=1.2):
+            now = config.last_updated
+        total_elapsed_time = now - config.started
+        cycle_num = total_elapsed_time // cycle_dur
+        if config.run_continuously:
+            cycle_start = config.started + cycle_num * cycle_dur
+        else:
+            cycle_start = config.started
+    else:
+        # Facilitates Light Profile View
+        cycle_start = datetime(
+            year=now.year, month=now.month, day=now.day, hour=0, second=0
+        )
+        cycle_num = 0
+    # Calculate plot x values for the current (or first) cycle.
+    times = [cycle_start + x for x in df.iloc[:, 0]]
+    values = df.iloc[:, 1]
 
     # Build plot
     plt.figure(figsize=(10, 6))
 
-    # Prepare x and y data for plotting
-    today = datetime.today().date()
-    if config:
-        # For live profile plots calculate plot times in the context of the last 24 hours
-        start = (
-            datetime.combine(datetime.today().date(), config.started.time())
-            - timedelta(days=1)
-            if config.started < datetime.today() - timedelta(days=1)
-            else config.started
-        )
-        time_deltas = [
-            datetime.combine(date.min, x) - datetime.min for x in df.iloc[:, 0].tolist()
-        ]
-        times = [start + x for x in time_deltas]
-    else:
-        # For profile viewers plot in the context of from this moment forward.
-        start = today
-        times = [datetime.combine(start, x) for x in df.iloc[:, 0].tolist()]
-    values = df.iloc[:, 1]
-
     # plot cols
     plt.plot(times, values, marker=".")
     plt.grid("both")
-    plt.xlabel("Duration from Start of Profile (Hrs:Min)")
+    plt.xlabel("Duration from Start of Profile")
     plt.ylabel("Light Intensity Value")
     plt.title(str(os.path.basename(filepath)))
     plt.tight_layout()
 
+    time_fmt = "%H:%M:%S" if cycle_dur < timedelta(minutes=10) else "%H:%M"
     if config:
         # For life profile label plots with start and current time/duration.
-        now = datetime.now()
-        dur = now - start
-        dur_str = f"{int(dur.seconds/60/60 % 60):02d}:{int(dur.seconds/60 % 60):02d}"
+        dur = now - cycle_start
+        if dur > cycle_dur and not config.run_continuously:
+            now = cycle_start + cycle_dur
+            dur = cycle_dur
+            completed = True
+        else:
+            completed = False
+        dur_str = now.strftime("%m/%d " + time_fmt)
         plt.axvline(x=now, linestyle="--", color="r")
-        plt.annotate(dur_str, [now, 86], rotation=90, ha="right")
-        plt.annotate("Last Update", [now, 80.5], rotation=90, ha="left")
-        plt.axvline(x=start, linestyle="--", color="r")
-        plt.annotate(
-            config.started.strftime("%m/%d %H:%M"),
-            [start, 41],
-            rotation=90,
-            ha="right",
-        )
-        plt.annotate("Start Time", [start, 42], rotation=90, ha="left")
+        an_y = (78, 80.5) if config.last_intensity < 60. else (0, 2.5)
+        intensity = config.last_intensity
+        plt.annotate(f"{intensity}", xy=(now, intensity),
+                     xytext=(now + 2*cycle_dur/100, intensity + 5),
+                     arrowprops=dict(facecolor='black', width=1,
+                                     headwidth=6, headlength=6)
+                     )
+        plt.annotate(dur_str, [now, an_y[0]], rotation=90, ha="right")
+        # TODO: To plot value we need to determine what it is. This should be done by
+        #       the same function that does it for control_lights.py.
+        # plt.annotate(0, [now, 0], ha="left")
+        plt.annotate("Last Update", [now, an_y[1]], rotation=90, ha="left")
+        if config.run_continuously and cycle_num:
+            plt.axvline(x=cycle_start, linestyle="--", color="r")
+            plt.annotate(
+                cycle_start.strftime("%m/%d %H:%M:%S"),
+                [cycle_start, 41],
+                rotation=90,
+                ha="right",
+            )
+            plt.annotate(
+                f"Cycle {cycle_num + 1:,} Start Time",
+                [cycle_start, 39],
+                rotation=90,
+                ha="left",
+            )
         plt.xlabel("Rasberry Pi Time of Day")
-        plt.title(f"Controlling Profile: {config.profile_filename}")
+        plt.title(
+            f"Controlling Profile: {config.profile_filename}"
+            f"{' (looping)' if config.run_continuously else ' (COMPLETED)' if completed else ''}"
+            f"\n Started: {config._started.strftime('%m/%d %H:%M:%S')}"
+        )
+        plt.tight_layout()
 
     plt.gcf().autofmt_xdate(rotation=90, ha="center")
     ax = plt.gca()
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter(time_fmt))
 
     # save plot to 'static' folder
     plot_path = (
