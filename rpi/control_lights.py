@@ -64,7 +64,7 @@ def control_lights():
     def update_and_report(time_point: datetime, update_intensity: float):
         send_to_arduino(update_intensity)
         config["last_updated"] = time_point
-        config["last_intensity"] = update_intensity
+        config["last_intensity"] = int(update_intensity)
         save_config(config)
 
     # Determine the profile cycle length and where the current time is relative to when it was started.
