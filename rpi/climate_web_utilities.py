@@ -287,6 +287,8 @@ def expand_profile_points(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
+    now = datetime.now()
+    now = now - timedelta(microseconds=now.microsecond)
     # Get the profile
     df = pd.read_excel(filepath)
     # Transform input data time column to timedeltas
@@ -295,10 +297,8 @@ def plot_excel(filepath: str = "", config: Optional[ClimateConfig] = None):
     df = expand_profile_points(df)
     # Determine the profile cycle length and last cycle start time.
     cycle_dur = min(max(df[df.columns[0]]), timedelta(days=1))
-    now = datetime.now()
-    now = now - timedelta(microseconds=now.microsecond)
     if config:
-        if now - config.last_updated < timedelta(seconds=1.5):
+        if now - config.last_updated < timedelta(seconds=1.2):
             now = config.last_updated
         total_elapsed_time = now - config.started
         cycle_num = total_elapsed_time // cycle_dur
